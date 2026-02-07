@@ -1,0 +1,14 @@
+id: "manchester_bsc"
+type: "education"
+institution: "The University of Manchester"
+degree: "BSc Mathematics with Financial Mathematics"
+degree_es: "BSc Matemáticas con Matemáticas Financieras"
+dates: "2018 - 2021"
+dates_es: "2018 - 2021"
+location: "Manchester, UK"
+gpa: "4/4"
+priority: 2
+tags: ["math", "statistics", "data"]
+skills: ["R", "MATLAB", "Linear Algebra", "Statistics", "Probability", "Optimization"]
+
+bullets: []

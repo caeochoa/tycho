@@ -1,0 +1,20 @@
+id: "sek_ib"
+type: "education"
+institution: "International School SEK - Ciudalcampo"
+institution_es: "Colegio Internacional SEK - Ciudalcampo"
+degree: "International Baccalaureate DP"
+degree_es: "Programa del Diploma del Bachillerato Internacional"
+dates: "2015 - 2017"
+dates_es: "2015 - 2017"
+location: "Madrid, Spain"
+gpa: "3.8/4"
+priority: 3
+tags: ["math"]
+skills: []
+
+bullets:
+  - id: "sek_hl"
+    text: "Higher Level subjects: Mathematics, Biology, English"
+    text_es: "Asignaturas de Nivel Superior: Matemáticas, Biología, Inglés"
+    tags: ["math"]
+    priority: 1

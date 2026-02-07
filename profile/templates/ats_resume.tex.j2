@@ -1,0 +1,106 @@
+\documentclass[10pt, a4paper]{article}
+
+% --- ATS-Friendly Setup ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+% Enable Unicode text extraction for ATS
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+% --- Section Formatting ---
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+
+% Remove page numbers
+\pagestyle{empty}
+
+% Compact lists
+\setlist[itemize]{nosep, leftmargin=1.5em, label=\textbullet}
+
+\begin{document}
+
+% --- Header ---
+\begin{center}
+    {\LARGE\textbf{ {{- p.personal.name -}} }}\\[4pt]
+    <% for title in p.personal.titles %>{{ title }}<% if not loop.last %> | <% endif %><% endfor %>\\[2pt]
+    {{ p.personal.email }}<% if phone %> | {{ phone }}<% endif %>
+    <% if p.personal.linkedin %> | \href{https://{{ p.personal.linkedin }}}{ {{- p.personal.linkedin -}} }<% endif %>
+\end{center}
+
+<% if p.summary %>
+% --- Summary ---
+\section{Summary}
+{{ p.summary }}
+
+<% endif %>
+% --- Skills ---
+\section{Skills}
+{{ p.skills | join(" | ") }}
+
+% --- Work Experience ---
+\section{Work Experience}
+<% for entry in p.experience %>
+\textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
+<% if entry.note %> \textit{({{ entry.note }})}<% endif %>
+<% if entry.location %>\\{{ entry.location }}<% endif %>
+<% if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+<% endfor %>
+\end{itemize}
+<% endif %>
+<% if entry.skills %>
+\textit{Technologies: {{ entry.skills | join(", ") }}}
+<% endif %>
+
+<% endfor %>
+% --- Education ---
+\section{Education}
+<% for entry in p.education %>
+\textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
+<% if entry.gpa %> | GPA: {{ entry.gpa }}<% endif %>
+<% if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+<% endfor %>
+\end{itemize}
+<% endif %>
+<% if entry.skills %>
+\textit{Relevant: {{ entry.skills | join(", ") }}}
+<% endif %>
+
+<% endfor %>
+<% if p.other %>
+% --- Other Experience ---
+\section{Other Experience}
+<% for entry in p.other %>
+\textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
+<% if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+<% endfor %>
+\end{itemize}
+<% endif %>
+<% if entry.skills %>
+\textit{Technologies: {{ entry.skills | join(", ") }}}
+<% endif %>
+
+<% endfor %>
+<% endif %>
+<% if p.languages %>
+% --- Languages ---
+\section{Languages}
+<% for lang in p.languages %>\textbf{ {{- lang.language -}} } -- {{ lang.level }}<% if not loop.last %> | <% endif %><% endfor %>
+<% endif %>
+
+\end{document}

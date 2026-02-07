@@ -1,0 +1,20 @@
+id: "climate_hack"
+type: "other"
+organization: "UCL"
+title: "Climate Hack AI"
+title_es: "Climate Hack AI"
+dates: "2022"
+dates_es: "2022"
+location: "London, UK"
+priority: 2
+tags: ["ml", "ai", "cv", "competition"]
+skills: ["Python", "PyTorch", "CNNs", "RNNs", "Transformers"]
+
+bullets:
+  - id: "climate_hack_nn"
+    text: "Collaboratively developed and implemented various neural networks, including CNNs, RNNs, LSTMs, transformers, and Motion Aware Units using PyTorch, to predict cloud coverage for UK regions, representing the University of Edinburgh in the finals in London."
+    text_es: "Desarrollo e implementación colaborativa de varias redes neuronales, incluyendo CNNs, RNNs, LSTMs, transformers y Motion Aware Units usando PyTorch, para predicción de cobertura de nubes en regiones del Reino Unido, representando a la Universidad de Edimburgo en las finales en Londres."
+    tags: ["ml", "ai", "pytorch"]
+    priority: 1
+    variations:
+      ml_focus: "Built CNN, RNN, LSTM, and transformer models in PyTorch for cloud coverage prediction, reaching finals of national AI competition representing the University of Edinburgh."

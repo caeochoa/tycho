@@ -1,0 +1,96 @@
+technical:
+  - name: "Python"
+    tags: ["all"]
+    priority: 1
+  - name: "PyTorch"
+    tags: ["ml", "ai", "cv"]
+    priority: 1
+  - name: "LangChain"
+    tags: ["ai", "llm", "rag"]
+    priority: 1
+  - name: "ONNX"
+    tags: ["ml", "cv", "optimization"]
+    priority: 2
+  - name: "CUDA"
+    tags: ["ml", "cv", "optimization"]
+    priority: 2
+  - name: "Azure"
+    tags: ["cloud", "ai"]
+    priority: 2
+  - name: "SQL"
+    tags: ["all", "data", "backend"]
+    priority: 1
+  - name: "NumPy"
+    tags: ["ml", "data", "ai"]
+    priority: 2
+  - name: "Pandas"
+    tags: ["data", "ml"]
+    priority: 2
+  - name: "Matplotlib"
+    tags: ["data", "cv"]
+    priority: 3
+  - name: "HTML"
+    tags: ["web", "frontend"]
+    priority: 3
+  - name: "CSS"
+    tags: ["web", "frontend"]
+    priority: 3
+  - name: "JavaScript"
+    tags: ["web", "frontend"]
+    priority: 2
+  - name: "React"
+    tags: ["web", "frontend"]
+    priority: 2
+  - name: "R"
+    tags: ["data", "statistics"]
+    priority: 3
+  - name: "MATLAB"
+    tags: ["data", "math"]
+    priority: 3
+  - name: "Machine Learning"
+    tags: ["ml", "ai"]
+    priority: 1
+  - name: "Computer Vision"
+    tags: ["cv", "ai", "ml"]
+    priority: 1
+  - name: "Deep Learning"
+    tags: ["ml", "ai"]
+    priority: 1
+  - name: "RAG"
+    tags: ["ai", "llm", "rag"]
+    priority: 1
+  - name: "NLP"
+    tags: ["ai", "ml", "llm"]
+    priority: 2
+  - name: "xAI"
+    tags: ["ai", "ml", "research"]
+    priority: 2
+  - name: "Linear Algebra"
+    tags: ["math", "ml"]
+    priority: 3
+  - name: "Statistics"
+    tags: ["math", "data"]
+    priority: 3
+  - name: "Probability"
+    tags: ["math", "data"]
+    priority: 3
+  - name: "Optimization"
+    tags: ["math", "ml"]
+    priority: 3
+  - name: "Jinja2"
+    tags: ["python", "backend"]
+    priority: 3
+  - name: "Docker"
+    tags: ["devops", "cloud"]
+    priority: 3
+  - name: "Git"
+    tags: ["all"]
+    priority: 2
+
+languages:
+  - language: "English"
+    level: "Proficient"
+    level_es: "Experto"
+  - language: "Spanish"
+    level: "Native"
+    level_es: "Nativo"

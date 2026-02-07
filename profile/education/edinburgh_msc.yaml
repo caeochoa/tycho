@@ -1,0 +1,33 @@
+id: "edinburgh_msc"
+type: "education"
+institution: "The University of Edinburgh"
+degree: "MSc Design Informatics"
+degree_es: "MSc Design Informatics"
+dates: "2021 - 2022"
+dates_es: "2021 - 2022"
+location: "Edinburgh, UK"
+gpa: "3.7/4"
+priority: 1
+tags: ["ml", "ai", "xai", "research", "python"]
+skills: ["Python", "PyTorch", "NumPy", "Machine Learning", "xAI"]
+
+bullets:
+  - id: "edinburgh_ml"
+    text: "Utilized Python, Pandas, NumPy, and PyTorch for data analysis, visualization, and machine learning, implementing advanced models like CNNs, RNNs, and transformers."
+    text_es: "Utilización de Python, Pandas, NumPy y PyTorch para análisis de datos, visualización y aprendizaje automático, implementando modelos avanzados como CNNs, RNNs y transformers."
+    tags: ["ml", "python", "data"]
+    priority: 1
+
+  - id: "edinburgh_teams"
+    text: "Led mixed-skill teams of developers and designers in project execution, effectively bridging technical and non-technical stakeholders in diverse team settings."
+    text_es: "Liderazgo de equipos multidisciplinarios de desarrolladores y diseñadores en la ejecución de proyectos, actuando efectivamente como puente entre partes técnicas y no técnicas en entornos de equipo diversos."
+    tags: ["leadership", "teamwork"]
+    priority: 2
+
+  - id: "edinburgh_dissertation"
+    text: "Authored dissertation on Explainable AI (xAI), developing methods to enhance clinician trust in medical image segmentation models. Conducted user research with healthcare professionals and evaluated nn-uNet model outputs using the Vision Checklist framework."
+    text_es: "Autoría de tesis sobre IA Explicable (xAI), desarrollando métodos para mejorar la confianza de los clínicos en modelos de segmentación de imágenes médicas. Realización de investigación con usuarios profesionales de la salud y evaluación de salidas del modelo nn-uNet usando el marco Vision Checklist."
+    tags: ["xai", "ml", "research", "cv"]
+    priority: 1
+    variations:
+      ml_focus: "Dissertation on Explainable AI for medical image segmentation, developing evaluation methods using the Vision Checklist framework for nn-uNet models."

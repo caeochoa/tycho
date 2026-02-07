@@ -1,0 +1,18 @@
+id: "genai_hackathon"
+type: "other"
+organization: "Newspeak House"
+title: "London's 24hr GenAI Hackathon"
+title_es: "Hackathon de GenAI de 24h de Londres"
+dates: "2023"
+dates_es: "2023"
+location: "London, UK"
+priority: 1
+tags: ["ai", "llm", "web", "hackathon"]
+skills: ["JavaScript", "React", "LangChain"]
+
+bullets:
+  - id: "genai_hackathon_app"
+    text: "Developed an educational application featuring a three-component system with voice recognition and generative AI during a 24-hour hackathon, enhancing user comprehension by facilitating interactive, AI-driven explanations of complex concepts."
+    text_es: "Desarrollo de una aplicación educativa con un sistema de tres componentes con reconocimiento de voz e IA generativa durante un hackathon de 24 horas, mejorando la comprensión del usuario facilitando explicaciones interactivas impulsadas por IA de conceptos complejos."
+    tags: ["ai", "llm", "web"]
+    priority: 1

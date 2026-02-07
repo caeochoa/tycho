@@ -1,0 +1,22 @@
+id: "edinburgh_vision"
+type: "experience"
+company: "The University of Edinburgh"
+title: "Developing the Vision Checklist"
+title_es: "Desarrollo de Vision Checklist"
+dates: "2022 - 2023"
+dates_es: "2022 - 2023"
+location: "Edinburgh, UK"
+note: "part time"
+note_es: "tiempo parcial"
+priority: 3
+tags: ["cv", "python", "research", "ai"]
+skills: ["Python", "Computer Vision", "Matplotlib", "NumPy"]
+
+bullets:
+  - id: "edinburgh_vision_collab"
+    text: "Continued collaboration with the University of Edinburgh post-dissertation to enhance and expand the Python-based Vision Checklist, improving its functionality for computer vision AI tests and user accessibility."
+    text_es: "Continuación de la colaboración con la Universidad de Edimburgo posterior a la tesis para mejorar y expandir la Vision Checklist basada en Python, mejorando su funcionalidad para pruebas de IA de visión por computador y accesibilidad del usuario."
+    tags: ["cv", "python", "research"]
+    priority: 1
+    variations:
+      ml_focus: "Extended Python-based Vision Checklist framework for evaluating computer vision AI models, improving test coverage and user accessibility."

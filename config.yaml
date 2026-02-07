@@ -1,0 +1,28 @@
+search:
+  terms: ["AI Engineer", "Machine Learning Engineer", "Python Developer"]
+  locations: ["Remote", "Madrid", "London", "Edinburgh"]
+  country: "Spain"
+  results_per_source: 50
+
+scoring:
+  weights:
+    keyword_match: 0.35
+    title_match: 0.25
+    skills_overlap: 0.25
+    location_match: 0.15
+  thresholds:
+    high_interest: 0.75
+    low_interest: 0.30
+
+llm:
+  provider: "anthropic"
+  model: "claude-sonnet-4-5-20250929"
+  temperature: 0.3
+
+output:
+  formats: ["pdf"]
+  language: "en"
+
+profile_dir: "profile"
+db_path: "tycho.db"
+output_dir: "output"

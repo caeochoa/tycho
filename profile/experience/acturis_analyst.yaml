@@ -1,0 +1,26 @@
+id: "acturis_analyst"
+type: "experience"
+company: "Acturis"
+title: "Technical Business Analyst"
+title_es: "Technical Business Analyst"
+dates: "2022 - 2024"
+dates_es: "2022 - 2024"
+location: "London, UK"
+priority: 2
+tags: ["web", "frontend", "project-management", "sql", "client-facing"]
+skills: ["HTML", "CSS", "JavaScript", "React", "SQL"]
+
+bullets:
+  - id: "acturis_projects"
+    text: "Led and managed over 20 projects end-to-end, handling client relationships through weekly meetings, overseeing website operations for major clients, and translating complex requirements into technical specifications across multiple platforms."
+    text_es: "Liderazgo y gestión de más de 20 proyectos de principio a fin, manejo de relaciones con clientes a través de reuniones semanales, supervisión de operaciones web para clientes importantes y traducción de requisitos complejos en especificaciones técnicas en múltiples plataformas."
+    tags: ["project-management", "client-facing", "web"]
+    priority: 1
+    variations:
+      backend_focus: "Managed 20+ technical projects end-to-end, translating complex business requirements into technical specifications across web platforms."
+
+  - id: "acturis_learning"
+    text: "Demonstrated rapid autonomous learning by mastering complex technical systems and insurance industry software, ensuring seamless project transitions and efficient knowledge transfer to stakeholders."
+    text_es: "Demostración de aprendizaje autónomo rápido, dominando sistemas técnicos complejos y software de la industria de seguros, y asegurando la transferencia eficiente de conocimiento a las partes interesadas."
+    tags: ["learning", "knowledge-transfer"]
+    priority: 2

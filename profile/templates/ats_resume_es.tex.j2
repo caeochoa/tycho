@@ -1,0 +1,107 @@
+\documentclass[10pt, a4paper]{article}
+
+% --- ATS-Friendly Setup ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage[spanish]{babel}
+
+% Enable Unicode text extraction for ATS
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+% --- Section Formatting ---
+\titleformat{\section}{\large\bfseries\uppercase}{}{0em}{}[\titlerule]
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+
+% Remove page numbers
+\pagestyle{empty}
+
+% Compact lists
+\setlist[itemize]{nosep, leftmargin=1.5em, label=\textbullet}
+
+\begin{document}
+
+% --- Header ---
+\begin{center}
+    {\LARGE\textbf{ {{- p.personal.name_es if p.personal.name_es else p.personal.name -}} }}\\[4pt]
+    <% for title in (p.personal.titles_es if p.personal.titles_es else p.personal.titles) %>{{ title }}<% if not loop.last %> | <% endif %><% endfor %>\\[2pt]
+    {{ p.personal.email }}<% if phone %> | {{ phone }}<% endif %>
+    <% if p.personal.linkedin %> | \href{https://{{ p.personal.linkedin }}}{ {{- p.personal.linkedin -}} }<% endif %>
+\end{center}
+
+<% if p.summary %>
+% --- Resumen ---
+\section{Resumen}
+{{ p.summary }}
+
+<% endif %>
+% --- Habilidades ---
+\section{Habilidades Técnicas}
+{{ p.skills | join(" | ") }}
+
+% --- Experiencia Laboral ---
+\section{Experiencia Laboral}
+<% for entry in p.experience %>
+\textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
+<% if entry.note %> \textit{({{ entry.note }})}<% endif %>
+<% if entry.location %>\\{{ entry.location }}<% endif %>
+<% if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+<% endfor %>
+\end{itemize}
+<% endif %>
+<% if entry.skills %>
+\textit{Tecnologías: {{ entry.skills | join(", ") }}}
+<% endif %>
+
+<% endfor %>
+% --- Formación ---
+\section{Formación}
+<% for entry in p.education %>
+\textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
+<% if entry.gpa %> | Nota Media: {{ entry.gpa }}<% endif %>
+<% if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+<% endfor %>
+\end{itemize}
+<% endif %>
+<% if entry.skills %>
+\textit{Relevante: {{ entry.skills | join(", ") }}}
+<% endif %>
+
+<% endfor %>
+<% if p.other %>
+% --- Otra Experiencia ---
+\section{Otra Experiencia}
+<% for entry in p.other %>
+\textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
+<% if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+<% endfor %>
+\end{itemize}
+<% endif %>
+<% if entry.skills %>
+\textit{Tecnologías: {{ entry.skills | join(", ") }}}
+<% endif %>
+
+<% endfor %>
+<% endif %>
+<% if p.languages %>
+% --- Idiomas ---
+\section{Idiomas}
+<% for lang in p.languages %>\textbf{ {{- lang.language -}} } -- {{ lang.level_es if lang.level_es else lang.level }}<% if not loop.last %> | <% endif %><% endfor %>
+<% endif %>
+
+\end{document}

@@ -1,0 +1,18 @@
+id: "public_speaking"
+type: "other"
+organization: "The University of Manchester"
+title: "President of UoM Public Speaking Society"
+title_es: "Presidente de la Sociedad de Oratoria de UoM"
+dates: "2019 - 2020"
+dates_es: "2019 - 2020"
+location: "Manchester, UK"
+priority: 3
+tags: ["leadership", "communication"]
+skills: []
+
+bullets:
+  - id: "public_speaking_president"
+    text: "Led a university public speaking society as president, recruiting and coordinating a committee, planning and leading weekly skill-building sessions, and successfully coaching teams for inter-university competitions, while also expanding membership through collaborative events and society fairs."
+    text_es: "Liderazgo de una sociedad universitaria de oratoria como presidente, reclutamiento y coordinación de un comité, planificación y dirección de sesiones semanales de desarrollo de habilidades, y entrenamiento exitoso de equipos para competiciones inter-universitarias, mientras también se expandía la membresía a través de eventos colaborativos y ferias de sociedades."
+    tags: ["leadership", "communication"]
+    priority: 1

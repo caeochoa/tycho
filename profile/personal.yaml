@@ -1,0 +1,18 @@
+name: "Cesar Ochoa"
+name_es: "César Ochoa Munárriz"
+email: "caeochoa@gmail.com"
+phone_uk: "+44 792 393 6908"
+phone_es: "+34 636 382 118"
+linkedin: "linkedin.com/in/caeochoa"
+titles: ["AI Engineer", "MSc Design Informatics", "BSc Mathematics"]
+titles_es: ["Ingeniero de IA", "MSc Design Informatics", "BSc Mathematics"]
+
+summary:
+  default: "AI Engineer with experience in RAG systems, computer vision, and ML pipelines. MSc in Design Informatics from the University of Edinburgh and BSc in Mathematics from the University of Manchester."
+  variations:
+    ml_focus: "Machine Learning Engineer specializing in PyTorch, computer vision optimization, and deep learning model deployment. Strong mathematics foundation with hands-on experience in ONNX/CUDA optimization and RAG systems."
+    backend_focus: "Software Engineer with strong Python backend and cloud infrastructure skills. Experience building enterprise platforms with LangChain, SQL, and Azure. Mathematics graduate with analytical problem-solving abilities."
+    data_focus: "Data Scientist with mathematics background and hands-on ML experience. Skilled in Python, PyTorch, and data analysis pipelines. Experience with computer vision, NLP, and explainable AI research."
+
+hobbies: ["Climbing", "Meditation", "Skiing", "Technology"]
+hobbies_es: ["Escalada", "Meditación", "Esquí", "Tecnología"]

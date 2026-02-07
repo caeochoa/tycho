@@ -1,0 +1,30 @@
+id: "oesia_ai_engineer"
+type: "experience"
+company: "Grupo Oesía"
+title: "AI Engineer"
+title_es: "Ingeniero de IA"
+dates: "2024 - Present"
+dates_es: "2024 - Presente"
+location: "Madrid, Spain"
+priority: 1
+tags: ["ai", "ml", "python", "rag", "cv", "cloud", "llm"]
+skills: ["Python", "LangChain", "PyTorch", "ONNX", "CUDA", "Azure", "SQL"]
+
+bullets:
+  - id: "oesia_rag"
+    text: "Led backend development of OKM, a no-code RAG platform for enterprises. Implemented document QA, SQL query translation, and multi-step reasoning agents with self-validation capabilities."
+    text_es: "Desarrollo del backend de OKM, una plataforma de Inteligencia Artificial Generativa para empresas. Implementación de agentes de IA con funcionalidades de preguntas y respuestas sobre documentos, traducción de consultas SQL y razonamiento en varios pasos con capacidades de auto-validación."
+    tags: ["rag", "llm", "python", "backend", "ai"]
+    priority: 1
+    variations:
+      ml_focus: "Architected RAG pipeline using LangChain and vector databases for enterprise knowledge retrieval, implementing multi-step reasoning agents with self-validation."
+      backend_focus: "Built full-stack no-code platform with Python backend serving RAG-based document retrieval, SQL query translation, and multi-step reasoning agents."
+
+  - id: "oesia_cv"
+    text: "Led computer vision module improvement for Banco-IR, a real-time object detection project. Reduced latency to <20ms through ONNX/CUDA optimization and model retraining. Mentored a junior developer through systematic knowledge transfer, resulting in successful project handover and improved client satisfaction."
+    text_es: "Liderazgo de la mejora del módulo de visión por computador para Banco-IR, un proyecto de detección de objetos en tiempo real. Reducción de la latencia a <20ms mediante optimización ONNX/CUDA y reentrenamiento de modelos. Mentoría de un desarrollador junior mediante transferencia sistemática de conocimiento."
+    tags: ["cv", "optimization", "onnx", "cuda", "ml"]
+    priority: 1
+    variations:
+      ml_focus: "Reduced CV model inference time to <20ms through ONNX graph optimization and CUDA kernel tuning. Led model retraining and mentored junior developer."
+      backend_focus: "Optimized real-time object detection pipeline achieving <20ms latency via ONNX/CUDA. Managed project handover and client satisfaction."
