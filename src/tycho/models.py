@@ -204,3 +204,35 @@ class TailoredProfile(BaseModel):
     education: list[TailoredEntry] = Field(default_factory=list)
     other: list[TailoredEntry] = Field(default_factory=list)
     job_id: str = ""
+    focus: str | None = None
+
+
+# --- LLM Models ---
+
+class LLMKeywordResult(BaseModel):
+    """Result from LLM keyword extraction."""
+    keywords: list[str] = Field(default_factory=list)
+    required_skills: list[str] = Field(default_factory=list)
+    nice_to_have_skills: list[str] = Field(default_factory=list)
+    focus_area: str | None = None
+
+
+# --- Cover Letter Models ---
+
+class CoverLetter(BaseModel):
+    """A generated cover letter."""
+    job_id: str
+    greeting: str = "Dear Hiring Manager,"
+    paragraphs: list[str] = Field(default_factory=list)
+    closing: str = "Sincerely,"
+    language: str = "en"
+
+    @property
+    def full_text(self) -> str:
+        """Assemble the complete cover letter."""
+        parts = [self.greeting, ""]
+        for para in self.paragraphs:
+            parts.append(para)
+            parts.append("")
+        parts.append(self.closing)
+        return "\n".join(parts)

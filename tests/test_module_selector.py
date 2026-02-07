@@ -1,10 +1,14 @@
 """Tests for module selection and tailoring."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from tycho.cv.module_selector import (
     _detect_focus,
+    _detect_focus_llm,
     _get_bullet_text,
+    _llm_rerank_bullets,
     _score_bullet,
     _select_skills,
     _select_summary,
@@ -192,3 +196,75 @@ class TestSelectModules:
         for entry in tailored.experience:
             for bullet in entry.bullets:
                 assert isinstance(bullet.relevance_score, float)
+
+    def test_focus_field_set(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job)
+        assert tailored.focus is not None
+
+    def test_no_llm_client_phase1_behavior(self, sample_profile, ml_job):
+        """No LLM client should produce same results as Phase 1."""
+        tailored = select_modules(sample_profile, ml_job, llm_client=None)
+        assert tailored.job_id == ml_job.id
+        assert len(tailored.experience) > 0
+
+
+class TestLLMFocusDetection:
+    def test_llm_focus_detection(self, ml_job, mock_llm_client):
+        mock_llm_client.invoke.return_value = "ml_focus"
+        focus = _detect_focus_llm(ml_job, mock_llm_client)
+        assert focus == "ml_focus"
+
+    def test_llm_focus_detection_none(self, ml_job, mock_llm_client):
+        mock_llm_client.invoke.return_value = "none"
+        focus = _detect_focus_llm(ml_job, mock_llm_client)
+        assert focus is None
+
+    def test_llm_focus_detection_invalid(self, ml_job, mock_llm_client):
+        mock_llm_client.invoke.return_value = "something_random"
+        focus = _detect_focus_llm(ml_job, mock_llm_client)
+        assert focus is None
+
+
+class TestLLMReranking:
+    def test_llm_reranking_reorders_bullets(self, sample_profile, ml_job, mock_llm_client):
+        tailored = select_modules(sample_profile, ml_job)
+
+        # Mock LLM to reverse bullet order for entries with 2 bullets
+        mock_llm_client.invoke.return_value = "2,1"
+
+        result = _llm_rerank_bullets(tailored, ml_job, mock_llm_client, max_bullets=4)
+        # Should have called invoke for entries with >1 bullet
+        assert mock_llm_client.invoke.called
+
+    def test_llm_reranking_failure_preserves_order(self, sample_profile, ml_job, mock_llm_client):
+        tailored = select_modules(sample_profile, ml_job)
+        original_bullets = [
+            [b.id for b in entry.bullets] for entry in tailored.experience
+        ]
+
+        # Mock LLM to return invalid response
+        mock_llm_client.invoke.return_value = "invalid response"
+
+        result = _llm_rerank_bullets(tailored, ml_job, mock_llm_client, max_bullets=4)
+        # Bullet order should be preserved
+        for i, entry in enumerate(result.experience):
+            assert [b.id for b in entry.bullets] == original_bullets[i]
+
+    def test_select_modules_with_llm(self, sample_profile, ml_job, mock_llm_client):
+        """LLM client integration through select_modules."""
+        # Mock reranking response
+        mock_llm_client.invoke.return_value = "1,2"
+
+        tailored = select_modules(sample_profile, ml_job, llm_client=mock_llm_client)
+        assert tailored.job_id == ml_job.id
+        assert len(tailored.experience) > 0
+
+    def test_select_modules_llm_failure_graceful(self, sample_profile, ml_job, mock_llm_client):
+        """LLM failures should not break select_modules."""
+        mock_llm_client.invoke.side_effect = RuntimeError("API error")
+        mock_llm_client.invoke_structured.side_effect = RuntimeError("API error")
+
+        # Should still work, falling back to Phase 1 behavior
+        tailored = select_modules(sample_profile, ml_job, llm_client=mock_llm_client)
+        assert tailored.job_id == ml_job.id
+        assert len(tailored.experience) > 0

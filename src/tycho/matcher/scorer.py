@@ -1,5 +1,7 @@
 """Job-profile scoring algorithm."""
 
+from __future__ import annotations
+
 import re
 
 from tycho.config import ScoringConfig
@@ -7,10 +9,12 @@ from tycho.matcher.keywords import extract_keywords
 from tycho.models import Job, Profile
 
 
-def score_job(job: Job, profile: Profile, config: ScoringConfig) -> tuple[float, dict]:
+def score_job(
+    job: Job, profile: Profile, config: ScoringConfig, llm_client=None
+) -> tuple[float, dict]:
     """Score a job against a profile. Returns (score, details)."""
     weights = config.weights
-    job_keywords = extract_keywords(job.description, profile)
+    job_keywords = extract_keywords(job.description, profile, llm_client=llm_client)
 
     kw_score = _keyword_match_score(job_keywords, profile)
     title_score = _title_match_score(job.title, profile)
@@ -109,10 +113,12 @@ def _location_match_score(job_location: str, profile: Profile) -> float:
     return 0.0
 
 
-def score_jobs(jobs: list[Job], profile: Profile, config: ScoringConfig) -> list[Job]:
+def score_jobs(
+    jobs: list[Job], profile: Profile, config: ScoringConfig, llm_client=None
+) -> list[Job]:
     """Score all jobs against the profile and return them with scores."""
     for job in jobs:
-        score, details = score_job(job, profile, config)
+        score, details = score_job(job, profile, config, llm_client=llm_client)
         job.score = score
         job.score_details = details
     return jobs

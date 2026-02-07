@@ -18,9 +18,14 @@ llm:
   provider: "anthropic"
   model: "claude-sonnet-4-5-20250929"
   temperature: 0.3
+  enabled: true
+
+cover_letter:
+  max_paragraphs: 3
+  tone: "professional"
 
 output:
-  formats: ["pdf"]
+  formats: ["pdf", "docx"]
   language: "en"
 
 profile_dir: "profile"

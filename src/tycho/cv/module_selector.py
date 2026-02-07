@@ -4,6 +4,10 @@ Phase 1: Tag-based selection only.
 Phase 2: LLM re-ranking and rewriting.
 """
 
+from __future__ import annotations
+
+import logging
+
 from tycho.matcher.keywords import extract_keywords
 from tycho.models import (
     Bullet,
@@ -18,18 +22,30 @@ from tycho.models import (
     TailoredProfile,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def select_modules(
     profile: Profile,
     job: Job,
     language: str = "en",
     max_bullets_per_entry: int = 4,
+    llm_client=None,
 ) -> TailoredProfile:
     """Select and tailor profile modules for a specific job."""
-    job_keywords = set(extract_keywords(job.description, profile))
+    job_keywords = set(extract_keywords(job.description, profile, llm_client=llm_client))
 
     # Determine best focus area based on job keywords
     focus = _detect_focus(job_keywords, job.title)
+
+    # If tag-based focus is inconclusive and LLM is available, try LLM detection
+    if focus is None and llm_client is not None and getattr(llm_client, "available", False):
+        try:
+            llm_focus = _detect_focus_llm(job, llm_client)
+            if llm_focus:
+                focus = llm_focus
+        except Exception:
+            logger.debug("LLM focus detection failed, using tag-based result", exc_info=True)
 
     # Select summary variation
     summary = _select_summary(profile, focus, language)
@@ -67,7 +83,7 @@ def select_modules(
     # Use appropriate phone based on language
     personal = profile.personal
 
-    return TailoredProfile(
+    tailored = TailoredProfile(
         personal=personal,
         summary=summary,
         skills=skills,
@@ -76,7 +92,17 @@ def select_modules(
         education=education,
         other=other,
         job_id=job.id,
+        focus=focus,
     )
+
+    # LLM re-ranking of bullets if available
+    if llm_client is not None and getattr(llm_client, "available", False):
+        try:
+            tailored = _llm_rerank_bullets(tailored, job, llm_client, max_bullets_per_entry)
+        except Exception:
+            logger.debug("LLM bullet re-ranking failed, using tag-based ranking", exc_info=True)
+
+    return tailored
 
 
 def _detect_focus(job_keywords: set[str], job_title: str) -> str | None:
@@ -98,6 +124,54 @@ def _detect_focus(job_keywords: set[str], job_title: str) -> str | None:
     best = max(scores, key=scores.get)
 
     return best if scores[best] > 0 else None
+
+
+def _detect_focus_llm(job: Job, llm_client) -> str | None:
+    """Ask the LLM to classify the job's focus area."""
+    prompt = (
+        "Classify this job into exactly one focus area. "
+        "Reply with ONLY one of: ml_focus, backend_focus, data_focus\n"
+        "If none fits clearly, reply with: none\n\n"
+        f"Title: {job.title}\n"
+        f"Description: {job.description[:1500]}"
+    )
+    response = llm_client.invoke(prompt).strip().lower()
+    if response in ("ml_focus", "backend_focus", "data_focus"):
+        return response
+    return None
+
+
+def _llm_rerank_bullets(
+    tailored: TailoredProfile, job: Job, llm_client, max_bullets: int
+) -> TailoredProfile:
+    """Ask the LLM to re-rank bullets in each entry by relevance to the job."""
+    for entry in tailored.experience + tailored.education + tailored.other:
+        if len(entry.bullets) <= 1:
+            continue
+
+        bullet_texts = "\n".join(
+            f"{i+1}. {b.text}" for i, b in enumerate(entry.bullets)
+        )
+        prompt = (
+            f"Given this job: {job.title} at {job.company}\n"
+            f"Job description (excerpt): {job.description[:1000]}\n\n"
+            f"Rank these bullets by relevance to the job (most relevant first). "
+            f"Reply with ONLY the numbers in order, comma-separated (e.g., '2,1,3'):\n\n"
+            f"{bullet_texts}"
+        )
+        response = llm_client.invoke(prompt).strip()
+
+        # Parse the ranking
+        try:
+            indices = [int(x.strip()) - 1 for x in response.split(",")]
+            # Validate indices
+            if sorted(indices) == list(range(len(entry.bullets))):
+                reranked = [entry.bullets[i] for i in indices]
+                entry.bullets = reranked[:max_bullets]
+        except (ValueError, IndexError):
+            pass  # Keep original order on parse failure
+
+    return tailored
 
 
 def _select_summary(profile: Profile, focus: str | None, language: str) -> str:

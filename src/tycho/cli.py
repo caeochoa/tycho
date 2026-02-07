@@ -30,6 +30,20 @@ def _get_db():
     return get_session(engine)
 
 
+def _get_llm_client():
+    """Get LLM client if available, or None."""
+    config = _get_config()
+    if not config.llm.enabled:
+        return None
+
+    from tycho.llm import get_llm_client
+
+    client = get_llm_client(config.llm)
+    if client.available:
+        return client
+    return None
+
+
 @app.command()
 def collect(
     terms: list[str] | None = typer.Option(None, "--term", "-t", help="Search terms (overrides config)"),
@@ -66,7 +80,10 @@ def collect(
 
     try:
         profile = load_profile(config.profile_dir)
-        jobs = score_jobs(jobs, profile, config.scoring)
+        llm_client = _get_llm_client()
+        if llm_client:
+            console.print("  [cyan]Using LLM-enhanced keyword extraction[/cyan]")
+        jobs = score_jobs(jobs, profile, config.scoring, llm_client=llm_client)
         console.print("  [green]Scored all jobs against profile[/green]")
     except Exception as e:
         console.print(f"  [yellow]Skipping scoring: {e}[/yellow]")
@@ -217,8 +234,10 @@ def show(
 @app.command()
 def generate(
     job_id: str = typer.Argument(help="Job ID (or prefix)"),
-    formats: str = typer.Option(None, "--format", "-f", help="Output formats: pdf,tex (comma-separated)"),
+    formats: str = typer.Option(None, "--format", "-f", help="Output formats: pdf,tex,docx (comma-separated)"),
     lang: str = typer.Option(None, "--lang", help="Language: en or es"),
+    cover_letter: bool = typer.Option(False, "--cover-letter", "--cl", help="Generate a cover letter"),
+    no_llm: bool = typer.Option(False, "--no-llm", help="Disable LLM features for this run"),
 ):
     """Generate a tailored CV for a job."""
     from tycho.cv.latex_builder import build_pdf, build_tex
@@ -244,12 +263,17 @@ def generate(
     language = lang or config.output.language
     output_formats = (formats or ",".join(config.output.formats)).split(",")
 
+    # Get LLM client
+    llm_client = None if no_llm else _get_llm_client()
+    if llm_client:
+        console.print("  [cyan]LLM-enhanced generation enabled[/cyan]")
+
     console.print(f"[bold]Generating CV for:[/bold] {job.title} @ {job.company}")
     console.print(f"  Language: {language}, Formats: {', '.join(output_formats)}")
 
     # Load profile and tailor
     profile = load_profile(config.profile_dir)
-    tailored = select_modules(profile, job, language=language)
+    tailored = select_modules(profile, job, language=language, llm_client=llm_client)
 
     template_dir = Path(config.profile_dir) / "templates"
     output_dir = Path(config.output_dir) / _safe_filename(f"{job.company}_{job.title}")
@@ -277,9 +301,55 @@ def generate(
         console.print(f"  [green]LaTeX source saved:[/green] {result}")
         generated_paths.append(str(result))
 
+    if "docx" in output_formats:
+        from tycho.cv.docx_builder import build_docx
+
+        docx_path = output_dir / f"CV_{language.upper()}.docx"
+        result = build_docx(tailored, docx_path, language=language, country=config.search.country)
+        console.print(f"  [green]DOCX generated:[/green] {result}")
+        generated_paths.append(str(result))
+
+    # Cover letter generation
+    cl_path = None
+    if cover_letter:
+        if llm_client is None:
+            console.print("  [yellow]Cover letter requires LLM. Set ANTHROPIC_API_KEY or configure another provider.[/yellow]")
+        else:
+            from tycho.cover_letter.generator import generate_cover_letter, save_cover_letter
+
+            console.print("  [cyan]Generating cover letter...[/cyan]")
+            try:
+                cl = generate_cover_letter(
+                    job=job,
+                    profile=profile,
+                    tailored=tailored,
+                    llm_client=llm_client,
+                    config=config.cover_letter,
+                    language=language,
+                )
+
+                # Save as .txt
+                txt_path = output_dir / f"CoverLetter_{language.upper()}.txt"
+                save_cover_letter(cl, txt_path, format="txt")
+                console.print(f"  [green]Cover letter (txt):[/green] {txt_path}")
+
+                # Save as .docx
+                docx_cl_path = output_dir / f"CoverLetter_{language.upper()}.docx"
+                save_cover_letter(cl, docx_cl_path, format="docx")
+                console.print(f"  [green]Cover letter (docx):[/green] {docx_cl_path}")
+
+                cl_path = str(txt_path)
+            except Exception as e:
+                console.print(f"  [red]Cover letter failed:[/red] {e}")
+
     # Update DB
-    if generated_paths:
-        update_job_paths(session, job.id, cv_path=generated_paths[0])
+    if generated_paths or cl_path:
+        update_job_paths(
+            session,
+            job.id,
+            cv_path=generated_paths[0] if generated_paths else None,
+            cover_letter_path=cl_path,
+        )
         session.commit()
 
     session.close()
@@ -370,9 +440,15 @@ def dashboard():
 
     # Summary stats
     statuses = {}
+    cvs_generated = 0
+    cls_generated = 0
     for j in all_jobs:
         s = j.status.value
         statuses[s] = statuses.get(s, 0) + 1
+        if j.cv_path:
+            cvs_generated += 1
+        if j.cover_letter_path:
+            cls_generated += 1
 
     scored = [j for j in all_jobs if j.score is not None]
     avg_score = sum(j.score for j in scored) / len(scored) if scored else 0
@@ -380,6 +456,8 @@ def dashboard():
     console.print(Panel(
         f"[bold]Total Jobs:[/bold] {len(all_jobs)}\n"
         f"[bold]Average Score:[/bold] {avg_score:.3f}\n"
+        f"[bold]CVs Generated:[/bold] {cvs_generated}\n"
+        f"[bold]Cover Letters:[/bold] {cls_generated}\n"
         f"[bold]Status:[/bold] " + ", ".join(f"{k}: {v}" for k, v in sorted(statuses.items())),
         title="Dashboard",
     ))

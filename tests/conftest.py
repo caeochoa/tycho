@@ -3,19 +3,22 @@
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
 
-from tycho.config import ScoringConfig
+from tycho.config import CoverLetterConfig, ScoringConfig
 from tycho.models import (
     Bullet,
     BulletVariations,
+    CoverLetter,
     EducationModule,
     ExperienceModule,
     Job,
     JobStatus,
     Language,
+    LLMKeywordResult,
     OtherModule,
     PersonalInfo,
     Profile,
@@ -253,6 +256,31 @@ def empty_job():
 @pytest.fixture
 def scoring_config():
     return ScoringConfig()
+
+
+@pytest.fixture
+def mock_llm_client():
+    """Create a mock LLM client that returns configurable responses."""
+    client = MagicMock()
+    client.available = True
+
+    # Default invoke returns a simple string
+    client.invoke.return_value = "Mock LLM response"
+
+    # Default invoke_structured returns an LLMKeywordResult
+    client.invoke_structured.return_value = LLMKeywordResult(
+        keywords=["python", "pytorch", "docker"],
+        required_skills=["python", "machine learning"],
+        nice_to_have_skills=["kubernetes"],
+        focus_area="ml_focus",
+    )
+
+    return client
+
+
+@pytest.fixture
+def cover_letter_config():
+    return CoverLetterConfig()
 
 
 @pytest.fixture

@@ -34,6 +34,13 @@ class LLMConfig(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-sonnet-4-5-20250929"
     temperature: float = 0.3
+    enabled: bool = True
+    base_url: str | None = None
+
+
+class CoverLetterConfig(BaseModel):
+    max_paragraphs: int = 3
+    tone: str = "professional"
 
 
 class OutputConfig(BaseModel):
@@ -45,6 +52,7 @@ class TychoConfig(BaseModel):
     search: SearchConfig = SearchConfig()
     scoring: ScoringConfig = ScoringConfig()
     llm: LLMConfig = LLMConfig()
+    cover_letter: CoverLetterConfig = CoverLetterConfig()
     output: OutputConfig = OutputConfig()
     profile_dir: str = "profile"
     db_path: str = "tycho.db"
