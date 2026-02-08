@@ -178,7 +178,15 @@ class TestGenerateOptionsKeyboard:
     def test_generate_callback(self):
         kb = generate_options_keyboard("abc12345", page=1, lang="en", fmt="pdf", cl=False)
         callbacks = _flatten_callbacks(kb)
-        assert "gen_exec:abc12345:en:pdf:0" in callbacks
+        assert "gen_exec:abc12345:en:pdf:0:ats_resume" in callbacks
+
+    def test_template_button(self):
+        kb = generate_options_keyboard("abc12345", page=1, lang="en", fmt="pdf", cl=False, tpl="developer_cv")
+        labels = _flatten_labels(kb)
+        assert any("DEV" in l for l in labels)
+        callbacks = _flatten_callbacks(kb)
+        assert "gen_opt:abc12345:tpl" in callbacks
+        assert "gen_exec:abc12345:en:pdf:0:developer_cv" in callbacks
 
     def test_back_button(self):
         kb = generate_options_keyboard("abc12345", page=2, lang="en", fmt="pdf", cl=False)

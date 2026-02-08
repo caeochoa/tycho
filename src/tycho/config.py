@@ -47,6 +47,7 @@ class CoverLetterConfig(BaseModel):
 class OutputConfig(BaseModel):
     formats: list[str] = ["pdf"]
     language: str = "en"
+    template: str = "ats_resume"
 
 
 class WebConfig(BaseModel):

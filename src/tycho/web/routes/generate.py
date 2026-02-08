@@ -59,6 +59,7 @@ async def generate_cv(
     job_id: str,
     language: str = Form("en"),
     formats: str = Form("pdf"),
+    template: str = Form("ats_resume"),
     cover_letter: bool = Form(False),
     no_llm: bool = Form(False),
     session: Session = Depends(get_db),
@@ -96,11 +97,11 @@ async def generate_cv(
 
         pdf_path = output_dir / f"CV_{language.upper()}.pdf"
         try:
-            result = build_pdf(tailored, template_dir, pdf_path, language=language, country=config.search.country)
+            result = build_pdf(tailored, template_dir, pdf_path, language=language, country=config.search.country, template=template)
             generated_files.append(("PDF", str(result), result.name))
         except RuntimeError:
             tex_path = output_dir / f"CV_{language.upper()}.tex"
-            result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country)
+            result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country, template=template)
             generated_files.append(("LaTeX", str(result), result.name))
             errors.append("PDF compilation failed, .tex source saved instead")
 
@@ -108,7 +109,7 @@ async def generate_cv(
         from tycho.cv.latex_builder import build_tex
 
         tex_path = output_dir / f"CV_{language.upper()}.tex"
-        result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country)
+        result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country, template=template)
         generated_files.append(("LaTeX", str(result), result.name))
 
     if "docx" in output_formats:

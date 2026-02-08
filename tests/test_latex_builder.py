@@ -102,6 +102,63 @@ class TestRenderLatex:
         latex = render_latex(tailored, template_dir, language="en")
         assert "linkedin.com/in/caeochoa" in latex
 
+    def test_skills_use_texttt(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="en")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        latex = render_latex(tailored, template_dir, language="en")
+        assert r"\texttt{Python}" in latex
+
+    def test_parindent_set(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="en")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        latex = render_latex(tailored, template_dir, language="en")
+        assert r"\setlength{\parindent}{0mm}" in latex
+
+
+class TestRenderDeveloperCv:
+    def test_render_english(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="en")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        latex = render_latex(tailored, template_dir, language="en", template="developer_cv")
+
+        assert r"\documentclass" in latex
+        assert "Cesar Ochoa" in latex
+        assert "raleway" in latex
+        assert r"\colorbox{black}" in latex
+        assert r"\begin{longtable}" in latex
+        assert r"\slashsep" in latex
+
+    def test_render_spanish(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="es")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        latex = render_latex(tailored, template_dir, language="es", template="developer_cv")
+
+        assert "César Ochoa Munárriz" in latex
+        assert "Experiencia Laboral" in latex
+        assert r"Formación" in latex
+
+    def test_ats_features(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="en")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        latex = render_latex(tailored, template_dir, language="en", template="developer_cv")
+
+        assert r"\pdfgentounicode=1" in latex
+        assert r"\usepackage[hidelinks]{hyperref}" in latex
+        assert "fontawesome" not in latex.lower()
+
+    def test_contains_skills(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="en")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        latex = render_latex(tailored, template_dir, language="en", template="developer_cv")
+        assert r"\texttt{Python}" in latex
+        assert r"\texttt{PyTorch}" in latex
+
+    def test_invalid_template_raises(self, sample_profile, ml_job):
+        tailored = select_modules(sample_profile, ml_job, language="en")
+        template_dir = Path(__file__).parent.parent / "profile" / "templates"
+        with pytest.raises(Exception):
+            render_latex(tailored, template_dir, language="en", template="nonexistent")
+
 
 class TestBuildTex:
     def test_creates_tex_file(self, sample_profile, ml_job, tmp_path):

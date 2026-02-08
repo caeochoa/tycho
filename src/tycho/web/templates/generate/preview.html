@@ -31,6 +31,12 @@
                     <option value="es" {% if config.output.language == 'es' %}selected{% endif %}>Spanish</option>
                 </select>
 
+                <label for="template">Template</label>
+                <select name="template" id="template">
+                    <option value="ats_resume" {% if config.output.template == 'ats_resume' %}selected{% endif %}>ATS Resume</option>
+                    <option value="developer_cv" {% if config.output.template == 'developer_cv' %}selected{% endif %}>Developer CV</option>
+                </select>
+
                 <label for="formats">Formats</label>
                 <select name="formats" id="formats">
                     <option value="pdf" {% if 'pdf' in config.output.formats %}selected{% endif %}>PDF</option>

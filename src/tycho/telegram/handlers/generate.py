@@ -27,6 +27,7 @@ def _get_gen_opts(context: ContextTypes.DEFAULT_TYPE, job8: str) -> dict:
             "lang": config.output.language,
             "fmt": config.output.formats[0] if config.output.formats else "pdf",
             "cl": False,
+            "tpl": config.output.template,
             "page": 1,
         }
     return context.user_data[key]
@@ -55,7 +56,7 @@ async def gen_options_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     await query.answer()
     text = f"Generate CV \u2014 {job.title} @ {job.company}"
-    keyboard = generate_options_keyboard(job8, page, opts["lang"], opts["fmt"], opts["cl"])
+    keyboard = generate_options_keyboard(job8, page, opts["lang"], opts["fmt"], opts["cl"], opts.get("tpl", "ats_resume"))
     await query.edit_message_text(text, reply_markup=keyboard)
 
 
@@ -76,10 +77,14 @@ async def gen_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         opts["fmt"] = cycle[(idx + 1) % len(cycle)]
     elif option == "cl":
         opts["cl"] = not opts["cl"]
+    elif option == "tpl":
+        cycle = ["ats_resume", "developer_cv"]
+        idx = cycle.index(opts.get("tpl", "ats_resume")) if opts.get("tpl", "ats_resume") in cycle else 0
+        opts["tpl"] = cycle[(idx + 1) % len(cycle)]
 
     page = opts.get("page", 1)
     await query.answer()
-    keyboard = generate_options_keyboard(job8, page, opts["lang"], opts["fmt"], opts["cl"])
+    keyboard = generate_options_keyboard(job8, page, opts["lang"], opts["fmt"], opts["cl"], opts.get("tpl", "ats_resume"))
 
     engine = context.bot_data["engine"]
     session = await run_sync(get_session, engine)
@@ -93,13 +98,14 @@ async def gen_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def gen_exec_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle gen_exec:{job8}:{lang}:{fmt}:{cl} — execute CV generation."""
+    """Handle gen_exec:{job8}:{lang}:{fmt}:{cl}:{tpl} — execute CV generation."""
     query = update.callback_query
     parts = query.data.split(":")
     job8 = parts[1]
     lang = parts[2]
     fmt = parts[3]
     cl = parts[4] == "1"
+    tpl = parts[5] if len(parts) > 5 else "ats_resume"
 
     await query.answer()
     await query.edit_message_text("Generating CV... please wait.")
@@ -119,7 +125,7 @@ async def gen_exec_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     try:
         generated_paths = await run_sync(
-            _run_generation, config, job, lang, fmt, cl
+            _run_generation, config, job, lang, fmt, cl, tpl
         )
     except Exception as e:
         await query.edit_message_text(f"Generation failed: {e}")
@@ -149,7 +155,7 @@ async def gen_exec_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await context.bot.send_message(chat_id=chat_id, text=summary)
 
 
-def _run_generation(config, job, lang: str, fmt: str, cl: bool) -> list[str]:
+def _run_generation(config, job, lang: str, fmt: str, cl: bool, tpl: str = "ats_resume") -> list[str]:
     """Run CV generation synchronously. Returns list of file paths."""
     from tycho.cv.profile_loader import load_profile
     from tycho.cv.module_selector import select_modules
@@ -178,16 +184,16 @@ def _run_generation(config, job, lang: str, fmt: str, cl: bool) -> list[str]:
         from tycho.cv.latex_builder import build_pdf, build_tex
         pdf_path = output_dir / f"CV_{lang.upper()}.pdf"
         try:
-            result = build_pdf(tailored, template_dir, pdf_path, language=lang, country=config.search.country)
+            result = build_pdf(tailored, template_dir, pdf_path, language=lang, country=config.search.country, template=tpl)
             paths.append(str(result))
         except RuntimeError:
             tex_path = output_dir / f"CV_{lang.upper()}.tex"
-            result = build_tex(tailored, template_dir, tex_path, language=lang, country=config.search.country)
+            result = build_tex(tailored, template_dir, tex_path, language=lang, country=config.search.country, template=tpl)
             paths.append(str(result))
     elif fmt == "tex":
         from tycho.cv.latex_builder import build_tex
         tex_path = output_dir / f"CV_{lang.upper()}.tex"
-        result = build_tex(tailored, template_dir, tex_path, language=lang, country=config.search.country)
+        result = build_tex(tailored, template_dir, tex_path, language=lang, country=config.search.country, template=tpl)
         paths.append(str(result))
     elif fmt == "docx":
         from tycho.cv.docx_builder import build_docx

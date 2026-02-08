@@ -236,6 +236,7 @@ def generate(
     job_id: str = typer.Argument(help="Job ID (or prefix)"),
     formats: str = typer.Option(None, "--format", "-f", help="Output formats: pdf,tex,docx (comma-separated)"),
     lang: str = typer.Option(None, "--lang", help="Language: en or es"),
+    template: str = typer.Option(None, "--template", "-t", help="LaTeX template: ats_resume, developer_cv"),
     cover_letter: bool = typer.Option(False, "--cover-letter", "--cl", help="Generate a cover letter"),
     no_llm: bool = typer.Option(False, "--no-llm", help="Disable LLM features for this run"),
 ):
@@ -261,6 +262,7 @@ def generate(
             return
 
     language = lang or config.output.language
+    template_name = template or config.output.template
     output_formats = (formats or ",".join(config.output.formats)).split(",")
 
     # Get LLM client
@@ -269,7 +271,7 @@ def generate(
         console.print("  [cyan]LLM-enhanced generation enabled[/cyan]")
 
     console.print(f"[bold]Generating CV for:[/bold] {job.title} @ {job.company}")
-    console.print(f"  Language: {language}, Formats: {', '.join(output_formats)}")
+    console.print(f"  Language: {language}, Template: {template_name}, Formats: {', '.join(output_formats)}")
 
     # Load profile and tailor
     profile = load_profile(config.profile_dir)
@@ -284,20 +286,20 @@ def generate(
     if "pdf" in output_formats:
         pdf_path = output_dir / f"CV_{language.upper()}.pdf"
         try:
-            result = build_pdf(tailored, template_dir, pdf_path, language=language, country=config.search.country)
+            result = build_pdf(tailored, template_dir, pdf_path, language=language, country=config.search.country, template=template_name)
             console.print(f"  [green]PDF generated:[/green] {result}")
             generated_paths.append(str(result))
         except RuntimeError as e:
             console.print(f"  [red]PDF failed:[/red] {e}")
             # Fall back to .tex
             tex_path = output_dir / f"CV_{language.upper()}.tex"
-            result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country)
+            result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country, template=template_name)
             console.print(f"  [yellow]LaTeX source saved:[/yellow] {result}")
             generated_paths.append(str(result))
 
     if "tex" in output_formats:
         tex_path = output_dir / f"CV_{language.upper()}.tex"
-        result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country)
+        result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country, template=template_name)
         console.print(f"  [green]LaTeX source saved:[/green] {result}")
         generated_paths.append(str(result))
 

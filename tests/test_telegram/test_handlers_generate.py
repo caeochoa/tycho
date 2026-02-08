@@ -40,13 +40,15 @@ class TestGetGenOpts:
         assert opts["lang"] == "en"
         assert opts["fmt"] == "pdf"
         assert opts["cl"] is False
+        assert opts["tpl"] == "ats_resume"
 
     def test_returns_existing(self, make_context):
-        ctx = make_context(user_data={"gen_abc12345": {"lang": "es", "fmt": "docx", "cl": True, "page": 2}})
+        ctx = make_context(user_data={"gen_abc12345": {"lang": "es", "fmt": "docx", "cl": True, "tpl": "developer_cv", "page": 2}})
         opts = _get_gen_opts(ctx, "abc12345")
         assert opts["lang"] == "es"
         assert opts["fmt"] == "docx"
         assert opts["cl"] is True
+        assert opts["tpl"] == "developer_cv"
 
 
 @pytest.mark.asyncio
@@ -100,6 +102,18 @@ class TestGenToggleCallback:
         await gen_toggle_callback(update3, ctx)
         assert ctx.user_data["gen_aaaaaaaa"]["fmt"] == "pdf"
 
+    async def test_toggle_template(self, make_callback_update, make_context):
+        ctx = make_context()
+        ctx.user_data["gen_aaaaaaaa"] = {"lang": "en", "fmt": "pdf", "cl": False, "tpl": "ats_resume", "page": 1}
+
+        update = make_callback_update("gen_opt:aaaaaaaa:tpl")
+        await gen_toggle_callback(update, ctx)
+        assert ctx.user_data["gen_aaaaaaaa"]["tpl"] == "developer_cv"
+
+        update2 = make_callback_update("gen_opt:aaaaaaaa:tpl")
+        await gen_toggle_callback(update2, ctx)
+        assert ctx.user_data["gen_aaaaaaaa"]["tpl"] == "ats_resume"
+
     async def test_toggle_cover_letter(self, make_callback_update, make_context):
         ctx = make_context()
         ctx.user_data["gen_aaaaaaaa"] = {"lang": "en", "fmt": "pdf", "cl": False, "page": 1}
@@ -116,7 +130,7 @@ class TestGenToggleCallback:
 @pytest.mark.asyncio
 class TestGenExecCallback:
     async def test_job_not_found(self, make_callback_update, make_context):
-        update = make_callback_update("gen_exec:zzzzzzzz:en:pdf:0")
+        update = make_callback_update("gen_exec:zzzzzzzz:en:pdf:0:ats_resume")
         ctx = make_context()
         await gen_exec_callback(update, ctx)
         # First edit is "Generating...", second is error
@@ -124,7 +138,7 @@ class TestGenExecCallback:
         assert any("not found" in str(c).lower() for c in calls)
 
     async def test_generation_failure(self, make_callback_update, make_context):
-        update = make_callback_update("gen_exec:aaaaaaaa:en:pdf:0")
+        update = make_callback_update("gen_exec:aaaaaaaa:en:pdf:0:ats_resume")
         ctx = make_context()
 
         with patch(
@@ -141,7 +155,7 @@ class TestGenExecCallback:
         fake_pdf = tmp_path / "test.pdf"
         fake_pdf.write_text("fake pdf content")
 
-        update = make_callback_update("gen_exec:aaaaaaaa:en:pdf:0")
+        update = make_callback_update("gen_exec:aaaaaaaa:en:pdf:0:ats_resume")
         ctx = make_context()
 
         with patch(
@@ -166,7 +180,7 @@ class TestGenExecCallback:
         cl_docx = tmp_path / "CoverLetter_EN.docx"
         cl_docx.write_text("cl content")
 
-        update = make_callback_update("gen_exec:aaaaaaaa:en:pdf:1")
+        update = make_callback_update("gen_exec:aaaaaaaa:en:pdf:1:ats_resume")
         ctx = make_context()
         engine = ctx.bot_data["engine"]
 

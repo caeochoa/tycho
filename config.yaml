@@ -27,7 +27,15 @@ cover_letter:
 output:
   formats: ["pdf", "docx"]
   language: "en"
+  template: "ats_resume"
 
 profile_dir: "profile"
 db_path: "tycho.db"
 output_dir: "output"
+
+telegram:
+  enabled: true
+  token: ""
+  allowed_users:
+    - 4042272
+  page_size: 5

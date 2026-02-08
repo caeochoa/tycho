@@ -35,6 +35,7 @@ def render_latex(
     template_dir: str | Path,
     language: str = "en",
     country: str = "Spain",
+    template: str = "ats_resume",
 ) -> str:
     """Render a LaTeX document from the tailored profile using Jinja2."""
     template_dir = Path(template_dir)
@@ -50,13 +51,13 @@ def render_latex(
     )
 
     # Don't auto-escape — we handle LaTeX escaping ourselves
-    template_name = "ats_resume_es.tex.j2" if language == "es" else "ats_resume.tex.j2"
-    template = env.get_template(template_name)
+    template_name = f"{template}_es.tex.j2" if language == "es" else f"{template}.tex.j2"
+    tmpl = env.get_template(template_name)
 
     # Select phone based on country
     phone = profile.personal.phone_es if country == "Spain" else profile.personal.phone_uk
 
-    return template.render(p=profile, phone=phone, language=language)
+    return tmpl.render(p=profile, phone=phone, language=language)
 
 
 def build_pdf(
@@ -65,6 +66,7 @@ def build_pdf(
     output_path: str | Path,
     language: str = "en",
     country: str = "Spain",
+    template: str = "ats_resume",
 ) -> Path:
     """Build a PDF from the tailored profile.
 
@@ -74,7 +76,7 @@ def build_pdf(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Render LaTeX
-    latex_content = render_latex(profile, template_dir, language, country)
+    latex_content = render_latex(profile, template_dir, language, country, template=template)
 
     # Compile in a temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -102,12 +104,13 @@ def build_tex(
     output_path: str | Path,
     language: str = "en",
     country: str = "Spain",
+    template: str = "ats_resume",
 ) -> Path:
     """Build just the .tex file (no compilation) for debugging."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    latex_content = render_latex(profile, template_dir, language, country)
+    latex_content = render_latex(profile, template_dir, language, country, template=template)
     output_path.write_text(latex_content, encoding="utf-8")
     return output_path
 

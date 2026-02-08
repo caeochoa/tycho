@@ -1,0 +1,166 @@
+\documentclass[9pt, a4paper]{extarticle}
+
+% --- Developer CV Style (self-contained, Spanish) ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[default]{raleway}
+\renewcommand*\familydefault{\sfdefault}
+\usepackage[spanish]{babel}
+
+\usepackage[
+  top=1.75cm, bottom=0.5cm, left=2cm, right=2cm,
+  headheight=0.75cm, footskip=1cm, headsep=0.5cm
+]{geometry}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{longtable}
+\usepackage{moresize}
+\usepackage{anyfontsize}
+
+% ATS essentials
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+% Layout
+\setlength{\parindent}{0mm}
+\pagestyle{empty}
+\setlength{\LTpre}{0pt}
+\setlength{\LTpost}{0pt}
+\setlength{\tabcolsep}{0pt}
+
+% Compact itemize
+\setlist[itemize]{leftmargin=3mm, noitemsep, topsep=1.5pt}
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+% Section heading: white on black
+\newcommand{\cvsect}[1]{%
+  \vspace{\baselineskip}%
+  \colorbox{black}{\textcolor{white}{\textbf{#1}}}%
+  \vspace{0.2cm}%
+}
+
+% Skill separator
+\newcommand{\slashsep}{\hspace{3mm}/\hspace{3mm}}
+
+\begin{document}
+
+% --- Header ---
+\begin{minipage}[t]{0.60\textwidth}
+  \vspace{-\baselineskip}
+  \fontsize{24}{26}\selectfont\textbf{ {{- p.personal.name_es if p.personal.name_es else p.personal.name -}} }
+
+  \vspace{6pt}
+  \large
+  <% for title in (p.personal.titles_es if p.personal.titles_es else p.personal.titles) %>\textbf{ {{- title -}} }<% if not loop.last %>\\
+  <% endif %><% endfor %>
+\end{minipage}%
+\begin{minipage}[t]{0.40\textwidth}
+  \vspace{-\baselineskip}
+  \begin{flushright}
+  \vspace{5pt}
+  <% if phone %>{{ phone }}\\<% endif %>
+  \href{mailto:{{ p.personal.email }}}{ {{- p.personal.email -}} }\\
+  <% if p.personal.linkedin %>\href{https://{{ p.personal.linkedin }}}{ {{- p.personal.linkedin -}} }\\<% endif %>
+  \end{flushright}
+\end{minipage}
+
+\vspace{0.5cm}
+
+<% if p.summary %>
+% --- Resumen ---
+\cvsect{Resumen}
+
+{{ p.summary }}
+
+<% endif %>
+% --- Habilidades ---
+\cvsect{Habilidades Técnicas}
+
+<% for skill in p.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %>
+
+% --- Experiencia Laboral ---
+\cvsect{Experiencia Laboral}
+
+\begin{longtable}[H]{l l}
+<% for entry in p.experience %>
+\parbox[t]{0.17\textwidth}{ {{- entry.dates -}} }%
+&\parbox[t]{0.83\textwidth}{%
+  \textbf{ {{- entry.title -}} }\hfill{\footnotesize\textbf{ {{- entry.organization -}} }}\\%
+  <% if entry.location %>\textit{ {{- entry.location -}} }\\<% endif %>
+  <% if entry.bullets %>
+  \begin{itemize}
+  <% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+  <% endfor %>
+  \end{itemize}
+  <% endif %>
+  <% if entry.skills %><% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %><% endif %>
+}\\\\
+<% endfor %>
+\end{longtable}
+
+% --- Formación ---
+\cvsect{Formación}
+
+\begin{longtable}[H]{l l}
+<% for entry in p.education %>
+\parbox[t]{0.17\textwidth}{ {{- entry.dates -}} }%
+&\parbox[t]{0.83\textwidth}{%
+  \textbf{ {{- entry.title -}} }\hfill{\footnotesize\textbf{ {{- entry.organization -}} }}\\%
+  <% if entry.gpa %>\texttt{Nota Media -- {{ entry.gpa }}}\\<% endif %>
+  <% if entry.bullets %>
+  \begin{itemize}
+  <% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+  <% endfor %>
+  \end{itemize}
+  <% endif %>
+  <% if entry.skills %><% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %><% endif %>
+}\\\\
+<% endfor %>
+\end{longtable}
+
+<% if p.other %>
+% --- Otra Experiencia ---
+\cvsect{Otra Experiencia}
+
+\begin{longtable}[H]{l l}
+<% for entry in p.other %>
+\parbox[t]{0.17\textwidth}{ {{- entry.dates -}} }%
+&\parbox[t]{0.83\textwidth}{%
+  \textbf{ {{- entry.title -}} }\hfill{\footnotesize\textbf{ {{- entry.organization -}} }}\\%
+  <% if entry.bullets %>
+  \begin{itemize}
+  <% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+  <% endfor %>
+  \end{itemize}
+  <% endif %>
+  <% if entry.skills %><% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %><% endif %>
+}\\\\
+<% endfor %>
+\end{longtable}
+<% endif %>
+
+% --- Bottom: Aficiones + Idiomas ---
+<% if p.personal.hobbies_es or p.personal.hobbies or p.languages %>
+\begin{minipage}[t]{0.55\textwidth}
+  \vspace{-\baselineskip}
+  <% if p.personal.hobbies_es or p.personal.hobbies %>
+  \cvsect{Aficiones}
+
+  {{ (p.personal.hobbies_es if p.personal.hobbies_es else p.personal.hobbies) | join("\\slashsep ") }}
+  <% endif %>
+\end{minipage}%
+\begin{minipage}[t]{0.45\textwidth}
+  \vspace{-\baselineskip}
+  <% if p.languages %>
+  \cvsect{Idiomas}
+
+  <% for lang in p.languages %>\textbf{ {{- lang.language -}} } -- {{ lang.level_es if lang.level_es else lang.level }}<% if not loop.last %> \slashsep <% endif %><% endfor %>
+  <% endif %>
+\end{minipage}
+<% endif %>
+
+\end{document}

@@ -134,19 +134,22 @@ def status_change_keyboard(job8: str, page: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def generate_options_keyboard(job8: str, page: int, lang: str, fmt: str, cl: bool) -> InlineKeyboardMarkup:
+def generate_options_keyboard(job8: str, page: int, lang: str, fmt: str, cl: bool, tpl: str = "ats_resume") -> InlineKeyboardMarkup:
     """CV generation options with toggles."""
     cl_label = "Yes" if cl else "No"
+    tpl_labels = {"ats_resume": "ATS", "developer_cv": "DEV"}
+    tpl_label = tpl_labels.get(tpl, tpl.upper())
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(f"Language: {lang.upper()}", callback_data=f"gen_opt:{job8}:lang"),
             InlineKeyboardButton(f"Format: {fmt.upper()}", callback_data=f"gen_opt:{job8}:fmt"),
         ],
         [
+            InlineKeyboardButton(f"Template: {tpl_label}", callback_data=f"gen_opt:{job8}:tpl"),
             InlineKeyboardButton(f"Cover Letter: {cl_label}", callback_data=f"gen_opt:{job8}:cl"),
         ],
         [
-            InlineKeyboardButton("\u2705 Generate", callback_data=f"gen_exec:{job8}:{lang}:{fmt}:{'1' if cl else '0'}"),
+            InlineKeyboardButton("\u2705 Generate", callback_data=f"gen_exec:{job8}:{lang}:{fmt}:{'1' if cl else '0'}:{tpl}"),
             InlineKeyboardButton("\u25c0 Back", callback_data=f"detail:{job8}:{page}"),
         ],
     ])

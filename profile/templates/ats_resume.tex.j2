@@ -21,6 +21,9 @@
 % Remove page numbers
 \pagestyle{empty}
 
+% No paragraph indent
+\setlength{\parindent}{0mm}
+
 % Compact lists
 \setlist[itemize]{nosep, leftmargin=1.5em, label=\textbullet}
 
@@ -42,7 +45,7 @@
 <% endif %>
 % --- Skills ---
 \section{Skills}
-{{ p.skills | join(" | ") }}
+<% for skill in p.skills %>\texttt{ {{- skill -}} }<% if not loop.last %> \enspace \textbullet \enspace <% endif %><% endfor %>
 
 % --- Work Experience ---
 \section{Work Experience}
@@ -58,7 +61,7 @@
 \end{itemize}
 <% endif %>
 <% if entry.skills %>
-\textit{Technologies: {{ entry.skills | join(", ") }}}
+\textit{Technologies:} <% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>, <% endif %><% endfor %>
 <% endif %>
 
 <% endfor %>
@@ -75,7 +78,7 @@
 \end{itemize}
 <% endif %>
 <% if entry.skills %>
-\textit{Relevant: {{ entry.skills | join(", ") }}}
+\textit{Relevant:} <% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>, <% endif %><% endfor %>
 <% endif %>
 
 <% endfor %>
@@ -92,7 +95,7 @@
 \end{itemize}
 <% endif %>
 <% if entry.skills %>
-\textit{Technologies: {{ entry.skills | join(", ") }}}
+\textit{Technologies:} <% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>, <% endif %><% endfor %>
 <% endif %>
 
 <% endfor %>
