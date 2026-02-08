@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Generate CV — Tycho{% endblock %}
+{% block content %}
+{% if error %}
+<article>
+    <h3>Not Found</h3>
+    <p>{{ error }}</p>
+    <a href="/jobs" role="button">Back to Jobs</a>
+</article>
+{% else %}
+<h2>Generate CV</h2>
+<p><strong>{{ job.title }}</strong> at {{ job.company }} — {{ job.location }}</p>
+
+<div class="preview-grid">
+    <div>
+        <article>
+            <header>Job Description</header>
+            <div class="job-description">{{ job.description }}</div>
+        </article>
+    </div>
+    <div>
+        <article>
+            <header>Generation Options</header>
+            <form hx-post="/generate/{{ job.id }}"
+                  hx-target="#preview-panel"
+                  hx-swap="innerHTML"
+                  hx-indicator="#gen-spinner">
+                <label for="language">Language</label>
+                <select name="language" id="language">
+                    <option value="en" {% if config.output.language == 'en' %}selected{% endif %}>English</option>
+                    <option value="es" {% if config.output.language == 'es' %}selected{% endif %}>Spanish</option>
+                </select>
+
+                <label for="formats">Formats</label>
+                <select name="formats" id="formats">
+                    <option value="pdf" {% if 'pdf' in config.output.formats %}selected{% endif %}>PDF</option>
+                    <option value="docx">DOCX</option>
+                    <option value="tex">LaTeX (.tex)</option>
+                    <option value="pdf,docx">PDF + DOCX</option>
+                </select>
+
+                <fieldset>
+                    <label>
+                        <input type="checkbox" name="cover_letter" value="true">
+                        Generate cover letter
+                    </label>
+                    <label>
+                        <input type="checkbox" name="no_llm" value="true">
+                        Disable LLM features
+                    </label>
+                </fieldset>
+
+                <button type="submit">
+                    Generate
+                    <span id="gen-spinner" class="htmx-indicator" aria-busy="true"></span>
+                </button>
+            </form>
+        </article>
+
+        <div id="preview-panel">
+            {% if result %}
+            {% include "generate/_preview_panel.html" %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<a href="/jobs/{{ job.id }}" role="button" class="secondary">Back to Job Details</a>
+{% endif %}
+{% endblock %}

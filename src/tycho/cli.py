@@ -490,6 +490,36 @@ def dashboard():
 
 
 @app.command()
+def serve(
+    host: str = typer.Option(None, "--host", "-h", help="Bind host (default: from config)"),
+    port: int = typer.Option(None, "--port", "-p", help="Bind port (default: from config)"),
+    reload: bool = typer.Option(False, "--reload", help="Enable auto-reload for development"),
+):
+    """Start the web dashboard."""
+    try:
+        import uvicorn
+    except ImportError:
+        console.print("[red]Web dependencies not installed. Run: pip install tycho[web][/red]")
+        raise typer.Exit(1)
+
+    config = _get_config()
+    bind_host = host or config.web.host
+    bind_port = port or config.web.port
+    do_reload = reload or config.web.reload
+
+    console.print(f"[bold]Starting Tycho web dashboard[/bold]")
+    console.print(f"  http://{bind_host}:{bind_port}")
+
+    uvicorn.run(
+        "tycho.web.app:create_app",
+        host=bind_host,
+        port=bind_port,
+        reload=do_reload,
+        factory=True,
+    )
+
+
+@app.command()
 def config_cmd():
     """Show current configuration."""
     config = _get_config()

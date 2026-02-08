@@ -1,0 +1,30 @@
+<tr id="job-{{ job.id[:8] }}">
+    <td><input type="checkbox" name="job_ids" value="{{ job.id }}" form="bulk-form" class="job-checkbox"></td>
+    <td>
+        {% if job.score is not none %}
+        <span class="score score-{{ 'high' if job.score >= thresholds.high_interest else ('mid' if job.score >= thresholds.low_interest else 'low') }}">
+            {{ "%.2f"|format(job.score) }}
+        </span>
+        {% else %}
+        <span class="score score-none">&mdash;</span>
+        {% endif %}
+    </td>
+    <td><a href="/jobs/{{ job.id }}">{{ job.title }}</a></td>
+    <td>{{ job.company }}</td>
+    <td>{{ job.location }}</td>
+    <td>
+        <select name="new_status"
+                hx-post="/jobs/{{ job.id }}/status"
+                hx-target="#job-{{ job.id[:8] }}"
+                hx-swap="outerHTML"
+                class="status-select status-{{ job.status.value }}">
+            {% for s in statuses %}
+            <option value="{{ s }}" {% if job.status.value == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>{{ job.source }}</td>
+    <td>
+        <a href="/generate/{{ job.id }}" role="button" class="outline secondary btn-sm">Generate</a>
+    </td>
+</tr>

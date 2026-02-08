@@ -48,12 +48,25 @@ class OutputConfig(BaseModel):
     language: str = "en"
 
 
+class WebConfig(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 8000
+    reload: bool = False
+
+
+class SchedulerConfig(BaseModel):
+    enabled: bool = False
+    cron: str = "0 8 * * *"  # Daily at 8 AM
+
+
 class TychoConfig(BaseModel):
     search: SearchConfig = SearchConfig()
     scoring: ScoringConfig = ScoringConfig()
     llm: LLMConfig = LLMConfig()
     cover_letter: CoverLetterConfig = CoverLetterConfig()
     output: OutputConfig = OutputConfig()
+    web: WebConfig = WebConfig()
+    scheduler: SchedulerConfig = SchedulerConfig()
     profile_dir: str = "profile"
     db_path: str = "tycho.db"
     output_dir: str = "output"

@@ -1,6 +1,6 @@
 [project]
 name = "tycho"
-version = "0.1.0"
+version = "0.2.0"
 description = "Automated job application platform with tailored CV generation"
 requires-python = ">=3.11"
 dependencies = [
@@ -21,6 +21,7 @@ anthropic = ["langchain-anthropic>=0.3"]
 openai = ["langchain-openai>=0.3"]
 ollama = ["langchain-ollama>=0.3"]
 all-llm = ["langchain-anthropic>=0.3", "langchain-openai>=0.3", "langchain-ollama>=0.3"]
+web = ["fastapi>=0.115", "uvicorn[standard]>=0.34", "jinja2>=3.1", "python-multipart>=0.0.9", "apscheduler>=3.10,<4", "alembic>=1.14"]
 
 [project.scripts]
 tycho = "tycho.cli:app"

@@ -1,11 +1,11 @@
 # Tycho — Automated Job Application Platform
 
-Tycho collects job postings from LinkedIn and Indeed, scores them against a modular YAML profile, and generates tailored CVs (LaTeX PDF + .docx for ATS) with per-job bullet selection and focus-area detection.
+Tycho collects job postings from LinkedIn and Indeed, scores them against a modular YAML profile, and generates tailored CVs (LaTeX PDF + .docx for ATS) with per-job bullet selection and focus-area detection. Includes a web dashboard (FastAPI + HTMX) and scheduled collection.
 
 ## Quick Start
 
 ```bash
-uv venv && uv pip install -e . --python .venv/bin/python
+uv venv && uv pip install -e ".[web]" --python .venv/bin/python
 source .venv/bin/activate
 tycho profile          # validate profile YAML
 tycho collect          # scrape jobs from LinkedIn + Indeed
@@ -14,6 +14,7 @@ tycho show <id>        # inspect job + score breakdown
 tycho generate <id>    # generate tailored CV
 tycho mark <id> interested
 tycho dashboard        # summary stats + top 10
+tycho serve            # start web dashboard on http://0.0.0.0:8000
 ```
 
 Job IDs support prefix matching — `tycho show abc` matches `abc12345-...`.
@@ -24,6 +25,10 @@ Job IDs support prefix matching — `tycho show abc` matches `abc12345-...`.
 tycho/
 ├── config.yaml                     # Search terms, scoring weights, output settings
 ├── pyproject.toml                  # Dependencies, build config (hatchling)
+├── alembic/                        # Database migrations
+│   ├── alembic.ini
+│   ├── env.py                      # Imports tycho.db.Base for autogenerate
+│   └── versions/                   # Migration scripts
 ├── profile/                        # Multi-file YAML profile (one file per entry)
 │   ├── personal.yaml               # Name, contact, summary variations
 │   ├── skills.yaml                 # Technical skills (tagged, prioritized) + languages
@@ -34,25 +39,45 @@ tycho/
 │       ├── ats_resume.tex.j2       # ATS-friendly LaTeX template (English)
 │       └── ats_resume_es.tex.j2    # ATS-friendly LaTeX template (Spanish)
 ├── src/tycho/
-│   ├── cli.py                      # Typer CLI (all commands)
-│   ├── config.py                   # Pydantic settings loader from config.yaml
+│   ├── cli.py                      # Typer CLI (all commands including `serve`)
+│   ├── config.py                   # Pydantic settings (WebConfig, SchedulerConfig, etc.)
 │   ├── models.py                   # All Pydantic models (Job, Profile, TailoredProfile, etc.)
-│   ├── db.py                       # SQLAlchemy + SQLite (Job table, CRUD)
+│   ├── db.py                       # SQLAlchemy + SQLite (Job + ScheduleRun tables, CRUD)
 │   ├── collector/
 │   │   ├── base.py                 # Abstract collector interface
 │   │   ├── jobspy_collector.py     # python-jobspy integration (LinkedIn + Indeed)
 │   │   └── normalize.py            # Deduplication by (company, title, location) hash
 │   ├── matcher/
-│   │   ├── keywords.py             # Regex keyword extraction from job descriptions
+│   │   ├── keywords.py             # Regex + LLM keyword extraction from job descriptions
 │   │   └── scorer.py               # Weighted scoring (keyword, title, skills, location)
 │   ├── cv/
 │   │   ├── profile_loader.py       # Load multi-file YAML → Profile model
-│   │   ├── module_selector.py      # Tag-based bullet selection + focus detection
-│   │   └── latex_builder.py        # Jinja2 render → pdflatex/latexmk compile
-│   ├── cover_letter/               # Phase 2 (stub)
-│   └── llm/                        # Phase 2 (stub)
+│   │   ├── module_selector.py      # Tag-based + LLM bullet selection + focus detection
+│   │   ├── latex_builder.py        # Jinja2 render → pdflatex/latexmk compile
+│   │   └── docx_builder.py         # python-docx ATS-safe generation
+│   ├── cover_letter/
+│   │   └── generator.py            # LLM-based cover letter drafting
+│   ├── llm/
+│   │   └── client.py               # LangChain multi-provider wrapper
+│   ├── web/                        # FastAPI + HTMX web dashboard
+│   │   ├── app.py                  # App factory + lifespan (scheduler start/stop)
+│   │   ├── deps.py                 # Dependency injection (session, config, profile, llm)
+│   │   ├── routes/
+│   │   │   ├── jobs.py             # GET /jobs, GET /jobs/{id}, POST status, POST bulk-status
+│   │   │   ├── generate.py         # GET/POST /generate/{id}, download endpoint
+│   │   │   └── schedule.py         # GET /schedule, POST trigger/update, GET status
+│   │   ├── templates/              # Jinja2 HTML templates (standard delimiters)
+│   │   │   ├── base.html           # Layout: nav, Pico CSS, HTMX script
+│   │   │   ├── jobs/               # list, _table, _row, detail
+│   │   │   ├── generate/           # preview, _preview_panel
+│   │   │   └── schedule/           # index, _status
+│   │   └── static/                 # CSS + JS
+│   └── scheduler/
+│       └── scheduler.py            # APScheduler BackgroundScheduler + collection_task
 ├── output/                         # Generated CVs go here (gitignored)
 └── tests/
+    ├── test_web/                   # TestClient tests for all web routes
+    └── test_scheduler.py           # Scheduler + DB helper tests
 ```
 
 ## Architecture
@@ -62,6 +87,8 @@ tycho/
 ```
 tycho collect → JobSpy scrape → normalize/dedup → score against profile → SQLite
 tycho generate <id> → load profile → detect focus → select bullets/variations → Jinja2 → LaTeX → PDF
+tycho serve → FastAPI + HTMX dashboard → browse/filter/generate from browser
+scheduler (optional) → APScheduler cron → collection_task → same pipeline as collect
 ```
 
 ### Key Design Decisions
@@ -69,12 +96,31 @@ tycho generate <id> → load profile → detect focus → select bullets/variati
 | Decision | Choice | Notes |
 |----------|--------|-------|
 | Job scraping | `python-jobspy` (not `jobspy`) | Scrapes LinkedIn + Indeed concurrently |
-| Jinja2 delimiters | Blocks: `<% %>`, Variables: `{{ }}`, Comments: `<# #>` | `<% %>` avoids conflicts with LaTeX `{ }` |
-| venv install | `uv pip install -e . --python .venv/bin/python` | Must target venv explicitly with uv |
+| Jinja2 delimiters (LaTeX) | Blocks: `<% %>`, Variables: `{{ }}`, Comments: `<# #>` | `<% %>` avoids conflicts with LaTeX `{ }` |
+| Jinja2 delimiters (HTML) | Standard `{% %}` / `{{ }}` | Separate Jinja2 env from LaTeX templates |
+| venv install | `uv pip install -e ".[web]" --python .venv/bin/python` | Must target venv explicitly with uv |
 | Profile format | Multi-file YAML, one per entry | Clean diffs, easy to add/disable entries |
-| Storage | SQLite via SQLAlchemy | Local-first, zero infrastructure |
+| Storage | SQLite via SQLAlchemy (sync) | Local-first, single-process Pi deployment |
 | CLI | Typer + Rich | `tycho` entry point defined in pyproject.toml |
 | CV tailoring | Tag-based (Phase 1), LLM-based (Phase 2) | Focus detection: ml_focus, backend_focus, data_focus |
+| Web framework | FastAPI + HTMX + Pico CSS | No JS build step, ~10KB CSS, CDN-delivered |
+| Scheduler | APScheduler 3.x BackgroundScheduler | Thread-based, well-tested, simple for single-process |
+| Optional deps | `pip install tycho[web]` | CLI users don't need FastAPI/Uvicorn |
+
+### Web Dashboard Architecture
+
+- **Pico CSS** (classless, CDN): Clean defaults for tables/forms/buttons, no build step
+- **HTMX**: Inline status changes, filtered table reloads, polling for scheduler status
+- **`app.state`**: Config, engine, scheduler stored on FastAPI app state (single-process)
+- **Dependency injection**: `get_db`, `get_config`, `get_templates`, `get_llm_client` via FastAPI `Depends`
+
+| HTMX Pattern | Method | Target | Swap |
+|--------------|--------|--------|------|
+| Filter/paginate | GET /jobs?status=X | #job-table | innerHTML |
+| Inline status | POST /jobs/{id}/status | #job-{id[:8]} | outerHTML |
+| Bulk status | POST /jobs/bulk-status | #job-table | innerHTML |
+| Generate CV | POST /generate/{id} | #preview-panel | innerHTML |
+| Schedule poll | GET /schedule/status | #status-panel | innerHTML (every 30s) |
 
 ### Profile Module System
 
@@ -128,12 +174,14 @@ This determines which bullet variations and summary to use.
 
 ### Database (db.py)
 
-Single `jobs` table with unique constraint on `(source, source_id)` for dedup. Key fields:
+Two tables:
+- **jobs**: Unique constraint on `(source, source_id)` for dedup. Status flow: new → reviewed → interested → applied → rejected → archived
+- **schedule_runs**: Tracks automated collection runs (timestamp, counts, status, errors)
 
-- `status`: new → reviewed → interested → applied → rejected → archived
-- `score` + `score_details` (JSON): match scoring results
-- `cv_path` / `cover_letter_path`: generated file locations
-- `tags`: JSON array of extracted keywords
+Key DB helpers:
+- `get_jobs_paginated()`: Offset/limit pagination with filtering and search
+- `get_job_by_prefix()`: Consolidates prefix matching logic
+- `get_schedule_runs()`, `add_schedule_run()`: Schedule run tracking
 
 ### LaTeX Templates
 
@@ -165,9 +213,28 @@ scoring:
     high_interest: 0.75       # Green highlight in dashboard
     low_interest: 0.30        # Dimmed in display
 
+llm:
+  provider: "anthropic"       # anthropic, openai, ollama
+  model: "claude-sonnet-4-5-20250929"
+  temperature: 0.3
+  enabled: true
+
+cover_letter:
+  max_paragraphs: 3
+  tone: "professional"
+
 output:
-  formats: ["pdf"]            # pdf, tex (Phase 2: docx)
+  formats: ["pdf", "docx"]   # pdf, tex, docx
   language: "en"              # en, es
+
+web:
+  host: "0.0.0.0"             # Bind host
+  port: 8000                  # Bind port
+  reload: false               # Auto-reload for development
+
+scheduler:
+  enabled: false              # Set true to enable automated collection
+  cron: "0 8 * * *"          # Cron expression (daily at 8 AM)
 
 profile_dir: "profile"
 db_path: "tycho.db"
@@ -177,17 +244,8 @@ output_dir: "output"
 ## Phase Status
 
 - **Phase 1 (PoC)**: COMPLETE — collect, score, browse, generate tailored CVs
-- **Phase 2 (MVP)**: Not started — LLM integration (LangChain), .docx output, cover letters, LLM re-ranking of bullets
-- **Phase 3 (Full)**: Not started — FastAPI web dashboard, scheduling, analytics, Alembic migrations
-
-### Phase 2 Stubs
-
-`src/tycho/llm/` and `src/tycho/cover_letter/` exist as empty packages. Phase 2 will add:
-- `llm/client.py` — LangChain multi-provider wrapper (Anthropic, OpenAI, Ollama)
-- `cover_letter/generator.py` — LLM-based cover letter drafting
-- `cv/docx_builder.py` — python-docx generation
-- LLM keyword extraction in `matcher/keywords.py`
-- LLM bullet re-ranking in `cv/module_selector.py`
+- **Phase 2 (MVP)**: COMPLETE — LLM integration (LangChain), .docx output, cover letters, LLM keyword extraction, bullet re-ranking
+- **Phase 3 (Full)**: COMPLETE — FastAPI + HTMX web dashboard, APScheduler, Alembic migrations
 
 ## Common Tasks
 
@@ -205,3 +263,15 @@ Edit `config.yaml` → `scoring.weights` (must sum to 1.0).
 
 **Generate just the .tex source (no PDF compilation):**
 `tycho generate <id> --format tex`
+
+**Start web dashboard:**
+`tycho serve` (default: http://0.0.0.0:8000)
+
+**Start with auto-reload (development):**
+`tycho serve --reload`
+
+**Enable automated collection:**
+Set `scheduler.enabled: true` and `scheduler.cron: "0 8 * * *"` in config.yaml, then `tycho serve`.
+
+**Install for Raspberry Pi deployment:**
+`pip install tycho[web] && tycho serve --host 0.0.0.0`

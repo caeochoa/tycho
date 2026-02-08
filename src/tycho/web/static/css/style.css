@@ -1,0 +1,111 @@
+/* Tycho Dashboard Custom Styles */
+
+/* Score colors */
+.score { font-weight: bold; font-variant-numeric: tabular-nums; }
+.score-high { color: #2ecc40; }
+.score-mid { color: #ff851b; }
+.score-low { color: #aaa; }
+.score-none { color: #ccc; }
+
+/* Status select inline */
+.status-select {
+    margin: 0;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    border: none;
+    background: transparent;
+}
+.status-new { color: #00bcd4; }
+.status-reviewed { color: #9c27b0; }
+.status-interested { color: #2ecc40; }
+.status-applied { color: #2196f3; }
+.status-rejected { color: #e74c3c; }
+.status-archived { color: #999; }
+
+/* Bulk action bar */
+.bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.bulk-bar label {
+    margin: 0;
+    white-space: nowrap;
+}
+.bulk-bar select {
+    max-width: 160px;
+    margin: 0;
+}
+.bulk-bar button {
+    margin: 0;
+}
+
+/* Small button */
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+}
+
+/* Job description */
+.job-description {
+    white-space: pre-wrap;
+    max-height: 600px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Generate preview layout */
+.preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+@media (max-width: 768px) {
+    .preview-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Flash messages */
+.flash-success { border-left: 4px solid #2ecc40; }
+.flash-error { border-left: 4px solid #e74c3c; }
+.flash-info { border-left: 4px solid #2196f3; }
+
+/* Pagination */
+nav[aria-label="Pagination"] ul {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    list-style: none;
+    padding: 0;
+}
+
+/* Table tweaks */
+table th, table td {
+    padding: 8px 12px;
+}
+
+/* HTMX loading indicator */
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator {
+    display: inline;
+}
+
+/* Schedule run history */
+.run-success { color: #2ecc40; }
+.run-error { color: #e74c3c; }
+
+/* Filter form */
+#filter-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: end;
+    flex-wrap: wrap;
+}
+#filter-form input, #filter-form select {
+    margin-bottom: 0;
+}

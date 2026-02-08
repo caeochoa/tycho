@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Schedule — Tycho{% endblock %}
+{% block content %}
+<h2>Collection Schedule</h2>
+
+<div class="grid">
+    <div>
+        <article>
+            <header>Configuration</header>
+            <dl>
+                <dt>Scheduler</dt>
+                <dd>{% if scheduler_active %}<span class="run-success">Active</span>{% else %}<span class="run-error">Inactive</span> — Set <code>scheduler.enabled: true</code> in config.yaml{% endif %}</dd>
+                <dt>Cron Expression</dt>
+                <dd><code>{{ config.scheduler.cron }}</code></dd>
+            </dl>
+
+            {% if scheduler_active %}
+            <form hx-post="/schedule/update" hx-target="#status-panel" hx-swap="innerHTML" role="group">
+                <input type="text" name="cron" value="{{ config.scheduler.cron }}" placeholder="0 8 * * *">
+                <button type="submit" class="secondary">Update Cron</button>
+            </form>
+            {% endif %}
+
+            <form hx-post="/schedule/trigger" hx-target="#status-panel" hx-swap="innerHTML">
+                <button type="submit">Trigger Now</button>
+            </form>
+        </article>
+    </div>
+    <div>
+        <div id="status-panel" hx-get="/schedule/status" hx-trigger="every 30s" hx-swap="innerHTML">
+            {% include "schedule/_status.html" %}
+        </div>
+    </div>
+</div>
+
+<article>
+    <header>Run History</header>
+    {% if runs %}
+    <table>
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Raw</th>
+                <th>Deduped</th>
+                <th>New</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for run in runs %}
+            <tr>
+                <td>{{ run.timestamp.strftime('%Y-%m-%d %H:%M') if run.timestamp else '—' }}</td>
+                <td><span class="run-{{ run.status }}">{{ run.status }}</span></td>
+                <td>{{ run.raw_count }}</td>
+                <td>{{ run.deduped_count }}</td>
+                <td>{{ run.new_count }}</td>
+                <td>{{ run.error_message or '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><em>No runs recorded yet.</em></p>
+    {% endif %}
+</article>
+{% endblock %}

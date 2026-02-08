@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title if job else "Not Found" }} — Tycho{% endblock %}
+{% block content %}
+{% if error %}
+<article>
+    <h3>Not Found</h3>
+    <p>{{ error }}</p>
+    <a href="/jobs" role="button">Back to Jobs</a>
+</article>
+{% else %}
+<hgroup>
+    <h2>{{ job.title }}</h2>
+    <p>{{ job.company }} &mdash; {{ job.location }}</p>
+</hgroup>
+
+<div class="grid">
+    <div>
+        <article>
+            <header>Details</header>
+            <dl>
+                <dt>Source</dt><dd>{{ job.source }}</dd>
+                <dt>Status</dt>
+                <dd>
+                    <select name="new_status"
+                            hx-post="/jobs/{{ job.id }}/status"
+                            hx-target="closest dd"
+                            hx-swap="innerHTML"
+                            class="status-select status-{{ job.status.value }}">
+                        {% for s in statuses %}
+                        <option value="{{ s }}" {% if job.status.value == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </dd>
+                {% if job.url %}
+                <dt>URL</dt><dd><a href="{{ job.url }}" target="_blank" rel="noopener">View Original</a></dd>
+                {% endif %}
+                {% if job.salary_min or job.salary_max %}
+                <dt>Salary</dt><dd>{{ job.salary_min or "?" }} - {{ job.salary_max or "?" }}</dd>
+                {% endif %}
+                {% if job.date_posted %}
+                <dt>Posted</dt><dd>{{ job.date_posted.strftime('%Y-%m-%d') }}</dd>
+                {% endif %}
+                {% if job.cv_path %}
+                <dt>CV</dt><dd>{{ job.cv_path }}</dd>
+                {% endif %}
+                {% if job.cover_letter_path %}
+                <dt>Cover Letter</dt><dd>{{ job.cover_letter_path }}</dd>
+                {% endif %}
+            </dl>
+            <footer>
+                <a href="/generate/{{ job.id }}" role="button">Generate CV</a>
+                <a href="/jobs" role="button" class="secondary">Back</a>
+            </footer>
+        </article>
+    </div>
+    <div>
+        {% if job.score is not none %}
+        <article>
+            <header>Match Score: <strong class="score score-{{ 'high' if job.score >= thresholds.high_interest else ('mid' if job.score >= thresholds.low_interest else 'low') }}">{{ "%.3f"|format(job.score) }}</strong></header>
+            {% if job.score_details %}
+            <table>
+                <thead><tr><th>Component</th><th>Score</th></tr></thead>
+                <tbody>
+                {% for key in ["keyword_match", "title_match", "skills_overlap", "location_match"] %}
+                {% if key in job.score_details %}
+                <tr>
+                    <td>{{ key.replace("_", " ").title() }}</td>
+                    <td>{{ "%.3f"|format(job.score_details[key]) }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+            {% if job.score_details.get("job_keywords") %}
+            <p><strong>Keywords ({{ job.score_details.job_keywords|length }}):</strong>
+                {{ job.score_details.job_keywords|join(", ") }}</p>
+            {% endif %}
+            {% endif %}
+        </article>
+        {% endif %}
+    </div>
+</div>
+
+{% if job.description %}
+<article>
+    <header>Description</header>
+    <div class="job-description">{{ job.description }}</div>
+</article>
+{% endif %}
+{% endif %}
+{% endblock %}

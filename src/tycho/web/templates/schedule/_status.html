@@ -1,0 +1,22 @@
+<article>
+    <header>Status</header>
+    {% if flash_message %}
+    <p class="flash-info">{{ flash_message }}</p>
+    {% endif %}
+    <dl>
+        <dt>Scheduler</dt>
+        <dd>{% if scheduler_active %}<span class="run-success">Active</span>{% else %}<span class="run-error">Inactive</span>{% endif %}</dd>
+        {% if next_run %}
+        <dt>Next Run</dt>
+        <dd>{{ next_run.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+        {% endif %}
+    </dl>
+    {% if runs %}
+    <p><strong>Recent Runs:</strong></p>
+    <ul>
+    {% for run in runs %}
+        <li>{{ run.timestamp.strftime('%Y-%m-%d %H:%M') if run.timestamp else '—' }} — <span class="run-{{ run.status }}">{{ run.status }}</span>{% if run.new_count %} ({{ run.new_count }} new){% endif %}</li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+</article>

@@ -8,10 +8,12 @@ from sqlalchemy import (
     Column,
     DateTime,
     Float,
+    Integer,
     String,
     Text,
     UniqueConstraint,
     create_engine,
+    func,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -46,6 +48,18 @@ class JobRow(Base):
     __table_args__ = (
         UniqueConstraint("source", "source_id", name="uq_source_source_id"),
     )
+
+
+class ScheduleRunRow(Base):
+    __tablename__ = "schedule_runs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.now, nullable=False)
+    raw_count = Column(Integer, default=0)
+    deduped_count = Column(Integer, default=0)
+    new_count = Column(Integer, default=0)
+    status = Column(String, default="success")  # success, error
+    error_message = Column(Text, nullable=True)
 
 
 def get_engine(db_path: str = "tycho.db"):
@@ -192,3 +206,91 @@ def update_job_paths(session: Session, job_id: str, cv_path: str | None = None, 
             row.cv_path = cv_path
         if cover_letter_path:
             row.cover_letter_path = cover_letter_path
+
+
+def get_jobs_paginated(
+    session: Session,
+    status: str | None = None,
+    min_score: float | None = None,
+    search: str | None = None,
+    offset: int = 0,
+    limit: int = 25,
+    sort_by: str = "score",
+    sort_dir: str = "desc",
+) -> tuple[list, int]:
+    """Query jobs with pagination. Returns (jobs, total_count)."""
+    query = session.query(JobRow)
+    count_query = session.query(func.count(JobRow.id))
+
+    if status:
+        query = query.filter(JobRow.status == status)
+        count_query = count_query.filter(JobRow.status == status)
+    if min_score is not None:
+        query = query.filter(JobRow.score >= min_score)
+        count_query = count_query.filter(JobRow.score >= min_score)
+    if search:
+        pattern = f"%{search}%"
+        search_filter = (
+            JobRow.title.ilike(pattern)
+            | JobRow.company.ilike(pattern)
+            | JobRow.location.ilike(pattern)
+        )
+        query = query.filter(search_filter)
+        count_query = count_query.filter(search_filter)
+
+    total = count_query.scalar()
+
+    sort_column = getattr(JobRow, sort_by, JobRow.score)
+    if sort_dir == "desc":
+        query = query.order_by(sort_column.desc().nullslast(), JobRow.date_collected.desc())
+    else:
+        query = query.order_by(sort_column.asc().nullsfirst(), JobRow.date_collected.desc())
+
+    rows = query.offset(offset).limit(limit).all()
+    return [row_to_job(r) for r in rows], total
+
+
+def get_job_by_prefix(session: Session, prefix: str):
+    """Find a single job by ID or prefix. Returns (job, error_msg)."""
+    job = get_job_by_id(session, prefix)
+    if job:
+        return job, None
+
+    rows = session.query(JobRow).filter(JobRow.id.like(f"{prefix}%")).all()
+    if len(rows) == 1:
+        return row_to_job(rows[0]), None
+    elif len(rows) > 1:
+        matches = [(r.id[:8], r.title, r.company) for r in rows[:5]]
+        return None, f"Ambiguous prefix '{prefix}': {matches}"
+    return None, f"Job not found: {prefix}"
+
+
+def get_schedule_runs(session: Session, limit: int = 20) -> list:
+    """Get recent schedule runs."""
+    rows = (
+        session.query(ScheduleRunRow)
+        .order_by(ScheduleRunRow.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    return rows
+
+
+def add_schedule_run(
+    session: Session,
+    raw_count: int = 0,
+    deduped_count: int = 0,
+    new_count: int = 0,
+    status: str = "success",
+    error_message: str | None = None,
+) -> ScheduleRunRow:
+    """Record a schedule run."""
+    run = ScheduleRunRow(
+        raw_count=raw_count,
+        deduped_count=deduped_count,
+        new_count=new_count,
+        status=status,
+        error_message=error_message,
+    )
+    session.add(run)
+    return run

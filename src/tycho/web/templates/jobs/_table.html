@@ -1,0 +1,41 @@
+<figure>
+<table role="grid">
+    <thead>
+        <tr>
+            <th scope="col" style="width:40px"></th>
+            <th scope="col">Score</th>
+            <th scope="col">Title</th>
+            <th scope="col">Company</th>
+            <th scope="col">Location</th>
+            <th scope="col">Status</th>
+            <th scope="col">Source</th>
+            <th scope="col">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in jobs %}
+        {% include "jobs/_row.html" %}
+        {% else %}
+        <tr><td colspan="8"><em>No jobs found.</em></td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</figure>
+
+{% if total_pages > 1 %}
+<nav aria-label="Pagination">
+    <ul>
+        {% if page > 1 %}
+        <li><a href="/jobs?page={{ page - 1 }}&status={{ status or '' }}&min_score={{ min_score or '' }}&search={{ search }}&sort={{ sort }}&dir={{ dir }}&per_page={{ per_page }}"
+               hx-get="/jobs?page={{ page - 1 }}&status={{ status or '' }}&min_score={{ min_score or '' }}&search={{ search }}&sort={{ sort }}&dir={{ dir }}&per_page={{ per_page }}"
+               hx-target="#job-table" hx-push-url="true">&laquo; Prev</a></li>
+        {% endif %}
+        <li><span>Page {{ page }} of {{ total_pages }}</span></li>
+        {% if page < total_pages %}
+        <li><a href="/jobs?page={{ page + 1 }}&status={{ status or '' }}&min_score={{ min_score or '' }}&search={{ search }}&sort={{ sort }}&dir={{ dir }}&per_page={{ per_page }}"
+               hx-get="/jobs?page={{ page + 1 }}&status={{ status or '' }}&min_score={{ min_score or '' }}&search={{ search }}&sort={{ sort }}&dir={{ dir }}&per_page={{ per_page }}"
+               hx-target="#job-table" hx-push-url="true">Next &raquo;</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
