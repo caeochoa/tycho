@@ -114,27 +114,40 @@ def build_tex(
 
 def _compile_latex(tmpdir: str, tex_path: Path) -> bool:
     """Compile LaTeX to PDF. Returns True on success."""
+    # Common LaTeX paths to check if not in PATH (especially for macOS)
+    extra_paths = ["/Library/TeX/texbin", "/usr/texbin", "/usr/local/bin"]
+    env = os.environ.copy()
+    search_path = env.get("PATH", "")
+    for p in extra_paths:
+        if os.path.exists(p) and p not in search_path:
+            search_path = f"{search_path}{os.pathsep}{p}"
+    env["PATH"] = search_path
+
     # Try latexmk first
-    if shutil.which("latexmk"):
+    latexmk_bin = shutil.which("latexmk", path=search_path)
+    if latexmk_bin:
         result = subprocess.run(
-            ["latexmk", "-pdf", "-interaction=nonstopmode", "-output-directory=" + tmpdir, str(tex_path)],
+            [latexmk_bin, "-pdf", "-interaction=nonstopmode", "-output-directory=" + tmpdir, str(tex_path)],
             capture_output=True,
             text=True,
             cwd=tmpdir,
             timeout=60,
+            env=env,
         )
         if result.returncode == 0:
             return True
 
     # Fallback to pdflatex (run twice for references)
-    if shutil.which("pdflatex"):
+    pdflatex_bin = shutil.which("pdflatex", path=search_path)
+    if pdflatex_bin:
         for _ in range(2):
             result = subprocess.run(
-                ["pdflatex", "-interaction=nonstopmode", "-output-directory=" + tmpdir, str(tex_path)],
+                [pdflatex_bin, "-interaction=nonstopmode", "-output-directory=" + tmpdir, str(tex_path)],
                 capture_output=True,
                 text=True,
                 cwd=tmpdir,
                 timeout=60,
+                env=env,
             )
         return result.returncode == 0
 

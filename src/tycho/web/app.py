@@ -1,5 +1,6 @@
 """FastAPI application factory for Tycho web dashboard."""
 
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,11 +13,12 @@ from tycho.config import load_config
 from tycho.db import init_db
 
 WEB_DIR = Path(__file__).parent
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize DB, config, and optionally start scheduler."""
+    """Initialize DB, config, and optionally start scheduler and Telegram bot."""
     config = load_config()
     engine = init_db(config.db_path)
 
@@ -34,7 +36,25 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
+    # Start Telegram bot if enabled
+    telegram_app = None
+    if config.telegram.enabled:
+        try:
+            from tycho.telegram.bot import create_bot, start_bot
+
+            token = config.telegram.effective_token
+            if token:
+                telegram_app = await create_bot(config, engine, scheduler=scheduler)
+                await start_bot(telegram_app)
+        except Exception as e:
+            logger.warning("Telegram bot failed to start: %s", e)
+
     yield
+
+    if telegram_app is not None:
+        from tycho.telegram.bot import stop_bot
+
+        await stop_bot(telegram_app)
 
     if scheduler is not None:
         from tycho.scheduler.scheduler import stop_scheduler

@@ -1,9 +1,10 @@
 """Configuration loading via Pydantic settings."""
 
+import os
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SearchConfig(BaseModel):
@@ -59,6 +60,17 @@ class SchedulerConfig(BaseModel):
     cron: str = "0 8 * * *"  # Daily at 8 AM
 
 
+class TelegramConfig(BaseModel):
+    enabled: bool = False
+    token: str = ""
+    allowed_users: list[int] = Field(default_factory=list)
+    page_size: int = 5
+
+    @property
+    def effective_token(self) -> str:
+        return os.getenv("TYCHO_TELEGRAM_TOKEN", "") or self.token
+
+
 class TychoConfig(BaseModel):
     search: SearchConfig = SearchConfig()
     scoring: ScoringConfig = ScoringConfig()
@@ -67,6 +79,7 @@ class TychoConfig(BaseModel):
     output: OutputConfig = OutputConfig()
     web: WebConfig = WebConfig()
     scheduler: SchedulerConfig = SchedulerConfig()
+    telegram: TelegramConfig = TelegramConfig()
     profile_dir: str = "profile"
     db_path: str = "tycho.db"
     output_dir: str = "output"

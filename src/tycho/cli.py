@@ -494,6 +494,7 @@ def serve(
     host: str = typer.Option(None, "--host", "-h", help="Bind host (default: from config)"),
     port: int = typer.Option(None, "--port", "-p", help="Bind port (default: from config)"),
     reload: bool = typer.Option(False, "--reload", help="Enable auto-reload for development"),
+    no_bot: bool = typer.Option(False, "--no-bot", help="Disable Telegram bot"),
 ):
     """Start the web dashboard."""
     try:
@@ -507,8 +508,16 @@ def serve(
     bind_port = port or config.web.port
     do_reload = reload or config.web.reload
 
+    if no_bot:
+        config.telegram.enabled = False
+
     console.print(f"[bold]Starting Tycho web dashboard[/bold]")
     console.print(f"  http://{bind_host}:{bind_port}")
+
+    if config.telegram.enabled and config.telegram.effective_token:
+        console.print("  Telegram bot: [green]enabled[/green]")
+    else:
+        console.print("  Telegram bot: [dim]disabled[/dim]")
 
     uvicorn.run(
         "tycho.web.app:create_app",

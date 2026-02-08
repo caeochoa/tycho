@@ -8,13 +8,14 @@ Tycho collects job postings from LinkedIn and Indeed, scores them against a modu
 uv venv && uv pip install -e ".[web]" --python .venv/bin/python
 source .venv/bin/activate
 tycho profile          # validate profile YAML
+tycho config           # show current configuration
 tycho collect          # scrape jobs from LinkedIn + Indeed
 tycho jobs             # list jobs sorted by score
 tycho show <id>        # inspect job + score breakdown
 tycho generate <id>    # generate tailored CV
 tycho mark <id> interested
-tycho dashboard        # summary stats + top 10
-tycho serve            # start web dashboard on http://0.0.0.0:8000
+tycho dashboard        # CLI dashboard: summary stats + top 10 (Rich TUI)
+tycho serve            # Web dashboard: http://0.0.0.0:8000 (FastAPI + HTMX)
 ```
 
 Job IDs support prefix matching — `tycho show abc` matches `abc12345-...`.
@@ -257,6 +258,12 @@ Edit `config.yaml` → `search.terms` and `search.locations`.
 
 **Adjust scoring:**
 Edit `config.yaml` → `scoring.weights` (must sum to 1.0).
+
+**View current configuration:**
+`tycho config`
+
+**View CLI dashboard (Rich TUI with stats):**
+`tycho dashboard`
 
 **Generate Spanish CV:**
 `tycho generate <id> --lang es`

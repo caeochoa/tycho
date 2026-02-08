@@ -49,8 +49,8 @@
 \section{Experiencia Laboral}
 <% for entry in p.experience %>
 \textbf{ {{- entry.title -}} } | {{ entry.organization }} \hfill {{ entry.dates }}
-<% if entry.note %> \textit{({{ entry.note }})}<% endif %>
-<% if entry.location %>\\{{ entry.location }}<% endif %>
+<%- if entry.note %> \textit{({{ entry.note }})}<% endif %>
+<%- if entry.location %>\\{{ entry.location }}<% endif %>
 <% if entry.bullets %>
 \begin{itemize}
 <% for bullet in entry.bullets %>
