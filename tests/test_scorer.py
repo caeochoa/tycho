@@ -2,7 +2,7 @@
 
 import pytest
 
-from tycho.config import ScoringConfig, ScoringWeights
+from tycho.config import LocationConfig, ScoringConfig, ScoringWeights
 from tycho.matcher.scorer import (
     _keyword_match_score,
     _location_match_score,
@@ -89,26 +89,66 @@ class TestSkillsOverlapScore:
 
 
 class TestLocationMatchScore:
-    def test_remote_english(self, sample_profile):
-        assert _location_match_score("Remote", sample_profile) == 1.0
+    def test_remote_english(self, scoring_config):
+        assert _location_match_score("Remote", scoring_config) == 1.0
 
-    def test_remote_spanish(self, sample_profile):
-        assert _location_match_score("En remoto, ES", sample_profile) == 1.0
+    def test_remote_spanish(self, scoring_config):
+        assert _location_match_score("En remoto", scoring_config) == 1.0
 
-    def test_madrid(self, sample_profile):
-        assert _location_match_score("Madrid, Spain", sample_profile) == 1.0
+    def test_madrid(self, scoring_config):
+        assert _location_match_score("Madrid, Spain", scoring_config) == 1.0
 
-    def test_london(self, sample_profile):
-        assert _location_match_score("London, UK", sample_profile) == 1.0
+    def test_london(self, scoring_config):
+        assert _location_match_score("London, UK", scoring_config) == 1.0
 
-    def test_edinburgh(self, sample_profile):
-        assert _location_match_score("Edinburgh", sample_profile) == 1.0
+    def test_edinburgh(self, scoring_config):
+        assert _location_match_score("Edinburgh", scoring_config) == 1.0
 
-    def test_unknown_location(self, sample_profile):
-        assert _location_match_score("Tokyo, Japan", sample_profile) == 0.0
+    def test_unknown_location(self, scoring_config):
+        assert _location_match_score("Tokyo, Japan", scoring_config) == 0.0
 
-    def test_empty_location(self, sample_profile):
-        assert _location_match_score("", sample_profile) == 0.5
+    def test_empty_location(self, scoring_config):
+        assert _location_match_score("", scoring_config) == 0.5
+
+    def test_spanish_locations(self, scoring_config):
+        assert _location_match_score("Madrid, España", scoring_config) == 1.0
+        assert _location_match_score("Edimburgo", scoring_config) == 1.0
+        assert _location_match_score("Londres, Reino Unido", scoring_config) == 1.0
+
+    def test_abbreviation_expansion(self):
+        config = ScoringConfig(locations=LocationConfig(
+            abbreviations={"md": "madrid", "es": "spain"},
+        ))
+        assert _location_match_score("MD", config) == 1.0
+        assert _location_match_score("ES", config) == 1.0
+
+    def test_word_boundary_no_false_positive(self, scoring_config):
+        # "en" should NOT match inside "Senior Engineer"
+        assert _location_match_score("Senior Engineer", scoring_config) == 0.0
+        # "es" should NOT match inside "processes" or "addresses"
+        assert _location_match_score("processes", scoring_config) == 0.0
+        assert _location_match_score("addresses", scoring_config) == 0.0
+
+    def test_abbreviation_word_boundary(self):
+        config = ScoringConfig(locations=LocationConfig(
+            abbreviations={"es": "spain"},
+        ))
+        # Standalone "ES" matches
+        assert _location_match_score("ES", config) == 1.0
+        # "es" inside a word does NOT match
+        assert _location_match_score("processes", config) == 0.0
+
+    def test_custom_config_locations(self):
+        config = ScoringConfig(locations=LocationConfig(
+            preferred=["berlin", "munich"],
+            preferred_es=["berlín", "múnich"],
+            remote_keywords=["remote", "teletrabajo"],
+        ))
+        assert _location_match_score("Berlin, Germany", config) == 1.0
+        assert _location_match_score("Berlín", config) == 1.0
+        assert _location_match_score("Teletrabajo", config) == 1.0
+        # Default locations no longer match with custom config
+        assert _location_match_score("Madrid, Spain", config) == 0.0
 
 
 class TestScoreJob:

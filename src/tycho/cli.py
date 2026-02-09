@@ -531,6 +531,44 @@ def serve(
 
 
 @app.command()
+def rescore():
+    """Re-score all jobs against current profile and config."""
+    from tycho.cv.profile_loader import load_profile
+    from tycho.db import get_jobs, init_db, get_session, update_job_score
+    from tycho.matcher.scorer import score_job
+
+    config = _get_config()
+    profile = load_profile(config.profile_dir)
+    llm_client = _get_llm_client()
+
+    engine = init_db(config.db_path)
+    session = get_session(engine)
+    all_jobs = get_jobs(session, limit=10000)
+
+    if not all_jobs:
+        console.print("[yellow]No jobs found in database.[/yellow]")
+        session.close()
+        return
+
+    console.print(f"[bold]Re-scoring {len(all_jobs)} jobs...[/bold]")
+    if llm_client:
+        console.print("  [cyan]Using LLM-enhanced keyword extraction[/cyan]")
+
+    changed = 0
+    for job in all_jobs:
+        old_score = job.score
+        new_score, details = score_job(job, profile, config.scoring, llm_client=llm_client)
+        update_job_score(session, job.id, new_score, details)
+        if old_score != new_score:
+            changed += 1
+
+    session.commit()
+    session.close()
+
+    console.print(f"\n[bold green]Done![/bold green] {len(all_jobs)} jobs re-scored, {changed} scores changed.")
+
+
+@app.command()
 def config_cmd():
     """Show current configuration."""
     config = _get_config()

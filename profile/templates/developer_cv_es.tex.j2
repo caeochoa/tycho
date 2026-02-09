@@ -30,7 +30,7 @@
 \setlength{\tabcolsep}{0pt}
 
 % Compact itemize
-\setlist[itemize]{leftmargin=3mm, noitemsep, topsep=1.5pt}
+\setlist[itemize]{leftmargin=3mm, noitemsep, topsep=0pt}
 \renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
 
 % Section heading: white on black
@@ -88,13 +88,13 @@
 &\parbox[t]{0.83\textwidth}{%
   \textbf{ {{- entry.title -}} }\hfill{\footnotesize\textbf{ {{- entry.organization -}} }}\\%
   <% if entry.location %>\textit{ {{- entry.location -}} }\\<% endif %>
-  <% if entry.bullets %>
+  <%- if entry.bullets %>
   \begin{itemize}
   <% for bullet in entry.bullets %>
     \item {{ bullet.text }}
-  <% endfor %>
+  <% endfor -%>
   \end{itemize}
-  <% endif %>
+  <%- endif %>
   <% if entry.skills %><% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %><% endif %>
 }\\\\
 <% endfor %>
@@ -109,13 +109,13 @@
 &\parbox[t]{0.83\textwidth}{%
   \textbf{ {{- entry.title -}} }\hfill{\footnotesize\textbf{ {{- entry.organization -}} }}\\%
   <% if entry.gpa %>\texttt{Nota Media -- {{ entry.gpa }}}\\<% endif %>
-  <% if entry.bullets %>
+  <%- if entry.bullets %>
   \begin{itemize}
   <% for bullet in entry.bullets %>
     \item {{ bullet.text }}
-  <% endfor %>
+  <% endfor -%>
   \end{itemize}
-  <% endif %>
+  <%- endif %>
   <% if entry.skills %><% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %><% endif %>
 }\\\\
 <% endfor %>
@@ -130,13 +130,13 @@
 \parbox[t]{0.17\textwidth}{ {{- entry.dates -}} }%
 &\parbox[t]{0.83\textwidth}{%
   \textbf{ {{- entry.title -}} }\hfill{\footnotesize\textbf{ {{- entry.organization -}} }}\\%
-  <% if entry.bullets %>
+  <%- if entry.bullets %>
   \begin{itemize}
   <% for bullet in entry.bullets %>
     \item {{ bullet.text }}
-  <% endfor %>
+  <% endfor -%>
   \end{itemize}
-  <% endif %>
+  <%- endif %>
   <% if entry.skills %><% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %><% endif %>
 }\\\\
 <% endfor %>

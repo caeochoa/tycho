@@ -8,12 +8,13 @@ Tycho collects job postings from LinkedIn and Indeed, scores them against a modu
 uv venv && uv pip install -e ".[web]" --python .venv/bin/python
 source .venv/bin/activate
 tycho profile          # validate profile YAML
-tycho config           # show current configuration
+tycho config-cmd           # show current configuration
 tycho collect          # scrape jobs from LinkedIn + Indeed
 tycho jobs             # list jobs sorted by score
 tycho show <id>        # inspect job + score breakdown
 tycho generate <id>    # generate tailored CV
 tycho mark <id> interested
+tycho rescore          # re-score all jobs against current profile/config
 tycho dashboard        # CLI dashboard: summary stats + top 10 (Rich TUI)
 tycho serve            # Web dashboard: http://0.0.0.0:8000 (FastAPI + HTMX)
 ```
@@ -38,7 +39,9 @@ tycho/
 │   ├── other/*.yaml                # Hackathons, leadership, etc.
 │   └── templates/
 │       ├── ats_resume.tex.j2       # ATS-friendly LaTeX template (English)
-│       └── ats_resume_es.tex.j2    # ATS-friendly LaTeX template (Spanish)
+│       ├── ats_resume_es.tex.j2    # ATS-friendly LaTeX template (Spanish)
+│       ├── developer_cv.tex.j2     # Modern developer CV template (English)
+│       └── developer_cv_es.tex.j2  # Modern developer CV template (Spanish)
 ├── src/tycho/
 │   ├── cli.py                      # Typer CLI (all commands including `serve`)
 │   ├── config.py                   # Pydantic settings (WebConfig, SchedulerConfig, etc.)
@@ -104,9 +107,13 @@ scheduler (optional) → APScheduler cron → collection_task → same pipeline 
 | Storage | SQLite via SQLAlchemy (sync) | Local-first, single-process Pi deployment |
 | CLI | Typer + Rich | `tycho` entry point defined in pyproject.toml |
 | CV tailoring | Tag-based (Phase 1), LLM-based (Phase 2) | Focus detection: ml_focus, backend_focus, data_focus |
+| LLM abstraction | LangChain multi-provider | Anthropic/OpenAI/Ollama, lazy init, dynamic imports |
+| Graceful degradation | `if llm_client and llm_client.available` guard | Falls back to Phase 1 behavior when no API key or `--no-llm` |
+| DOCX output | python-docx, Calibri 10pt, ATS-safe | No images, native Word bullets, 0.7" margins |
+| Template system | Multiple templates + language variants | `ats_resume` (ATS), `developer_cv` (modern); `_es` for Spanish |
 | Web framework | FastAPI + HTMX + Pico CSS | No JS build step, ~10KB CSS, CDN-delivered |
 | Scheduler | APScheduler 3.x BackgroundScheduler | Thread-based, well-tested, simple for single-process |
-| Optional deps | `pip install tycho[web]` | CLI users don't need FastAPI/Uvicorn |
+| Optional deps | `pip install tycho[web]`, `tycho[anthropic]`, `tycho[all-llm]` | LLM providers are optional, CLI users don't need FastAPI |
 
 ### Web Dashboard Architecture
 
@@ -159,9 +166,7 @@ Score = weighted sum of 4 components (weights in config.yaml):
 - **keyword_match** (0.35): % of job description keywords found in profile skills
 - **title_match** (0.25): Jaccard similarity of job title words vs profile titles
 - **skills_overlap** (0.25): Jaccard similarity of job skills vs profile skills
-- **location_match** (0.15): Binary — 1.0 for remote/known cities, 0.0 otherwise
-
-Supports Spanish location names (`remoto`, `españa`, etc.).
+- **location_match** (0.15): Binary — 1.0 for remote/known cities, 0.0 otherwise. Uses word-boundary regex to avoid false positives. Locations are configurable via `scoring.locations` in config.yaml. Abbreviations (e.g. `es` → `spain`) are expanded before matching.
 
 ### Focus Detection (module_selector.py)
 
@@ -172,6 +177,76 @@ When generating a CV, the selector detects the job's focus area by counting indi
 - **data_focus**: data science, analytics, pandas, statistics, etc.
 
 This determines which bullet variations and summary to use.
+
+### LLM Integration (client.py)
+
+`LLMClient` in `src/tycho/llm/client.py` wraps LangChain chat models with lazy initialization and provider abstraction.
+
+**Methods:**
+- `invoke(prompt)` → `str` — plain text response
+- `invoke_structured(prompt, output_schema)` → `BaseModel` — parsed into a Pydantic model via `with_structured_output()`
+- `available` property — checks: `enabled` config flag, provider package installed, API key present
+
+**Providers:**
+
+| Provider | LangChain Package | API Key Env Var | Install Extra |
+|----------|-------------------|-----------------|---------------|
+| `anthropic` | `langchain-anthropic` | `ANTHROPIC_API_KEY` | `tycho[anthropic]` |
+| `openai` | `langchain-openai` | `OPENAI_API_KEY` | `tycho[openai]` |
+| `ollama` | `langchain-ollama` | None (local) | `tycho[ollama]` |
+
+Install all providers: `pip install tycho[all-llm]`
+
+**Graceful degradation pattern:** Every LLM call site uses `if llm_client and llm_client.available`, wrapped in `try/except` with fallback to Phase 1 behavior. The `--no-llm` CLI flag skips creating the client entirely.
+
+**LLM-enhanced features:**
+- **Keyword extraction** (`matcher/keywords.py`): Hybrid regex + LLM. `extract_keywords_llm()` returns `LLMKeywordResult` (structured output with `keywords`, `required_skills`, `nice_to_have_skills`). Results are merged with regex keywords.
+- **Bullet re-ranking** (`cv/module_selector.py`): `_llm_rerank_bullets()` asks the LLM to rank bullets by relevance to the job. Response is a comma-separated list of indices (e.g., `2,1,3`). Falls back to tag-based order on parse failure.
+- **Focus detection fallback** (`cv/module_selector.py`): When tag-based `_detect_focus()` returns `None`, `_detect_focus_llm()` asks the LLM to classify as `ml_focus`, `backend_focus`, or `data_focus`.
+
+### Cover Letter Generation (generator.py)
+
+`generate_cover_letter()` in `src/tycho/cover_letter/generator.py` produces structured cover letters via LLM.
+
+**Pipeline:**
+1. Build system prompt: tone, paragraph count, language, response format markers
+2. Build human prompt: job title/company/description, candidate summary/skills/top 3 experiences
+3. LLM `invoke()` call with combined prompt
+4. Parse response using `GREETING:` / `PARAGRAPH:` / `CLOSING:` markers → `CoverLetter` model
+5. Fallback: if markers aren't found, raw text becomes a single paragraph
+
+**Output:** `CoverLetter` model with `greeting`, `paragraphs`, `closing`, `full_text` property. Saved as `.txt` (plain text) and `.docx` (Calibri 11pt).
+
+**Config:** `cover_letter.max_paragraphs` (default 3), `cover_letter.tone` (default "professional").
+
+**CLI:** `tycho generate <id> --cover-letter` (or `--cl`)
+
+### DOCX Builder (docx_builder.py)
+
+`build_docx()` in `src/tycho/cv/docx_builder.py` generates ATS-safe Word documents from a `TailoredProfile`.
+
+**Formatting:** Calibri 10pt, black text (#000000), gray accents (#505050 for titles, #646464 for dates/location), 0.7" margins on all sides, native Word `List Bullet` style.
+
+**Section order:** Name (16pt bold, centered) → Titles (10pt gray) → Contact (9pt) → Summary → Skills → Experience → Education → Other → Languages
+
+**Language support:** Section headings switch between English and Spanish (e.g., "Work Experience" / "Experiencia Laboral").
+
+**Phone selection:** Country-aware — `country == "Spain"` uses `phone_es`, otherwise `phone_uk`.
+
+### Template System
+
+Two LaTeX templates are available, each with English and Spanish variants:
+
+| Template | Class | Font | Style | File |
+|----------|-------|------|-------|------|
+| `ats_resume` | `article` | `lmodern` | ATS-optimized, single-column, minimal | `ats_resume.tex.j2` |
+| `developer_cv` | `extarticle` | `raleway` | Modern, styled section headers | `developer_cv.tex.j2` |
+
+**Language variants:** `{template}.tex.j2` (English), `{template}_es.tex.j2` (Spanish). Selected automatically based on `--lang` flag.
+
+**Selection:** `--template` / `-t` CLI flag or `output.template` config key. Default: `ats_resume`.
+
+All templates use the same Jinja2 custom delimiters (`<% %>` for blocks, `{{ }}` for variables).
 
 ### Database (db.py)
 
@@ -213,12 +288,32 @@ scoring:
   thresholds:
     high_interest: 0.75       # Green highlight in dashboard
     low_interest: 0.30        # Dimmed in display
+  locations:
+    preferred:                 # English location names (word-boundary matched)
+      - madrid
+      - london
+      - edinburgh
+      - spain
+      - uk
+    preferred_es:              # Spanish location names
+      - españa
+      - reino unido
+      - edimburgo
+      - londres
+    remote_keywords:           # Always score 1.0
+      - remote
+      - remoto
+    abbreviations:             # Short codes expanded before matching
+      md: madrid
+      es: spain
+      gb: united kingdom
 
 llm:
   provider: "anthropic"       # anthropic, openai, ollama
   model: "claude-sonnet-4-5-20250929"
   temperature: 0.3
   enabled: true
+  base_url: null              # Optional: for Ollama or self-hosted endpoints
 
 cover_letter:
   max_paragraphs: 3
@@ -227,6 +322,7 @@ cover_letter:
 output:
   formats: ["pdf", "docx"]   # pdf, tex, docx
   language: "en"              # en, es
+  template: "ats_resume"     # ats_resume, developer_cv
 
 web:
   host: "0.0.0.0"             # Bind host
@@ -259,8 +355,14 @@ Edit `config.yaml` → `search.terms` and `search.locations`.
 **Adjust scoring:**
 Edit `config.yaml` → `scoring.weights` (must sum to 1.0).
 
+**Customize location matching:**
+Edit `config.yaml` → `scoring.locations` to add preferred cities, abbreviations, or remote keywords.
+
+**Re-score all jobs after config/profile changes:**
+`tycho rescore`
+
 **View current configuration:**
-`tycho config`
+`tycho config-cmd`
 
 **View CLI dashboard (Rich TUI with stats):**
 `tycho dashboard`
@@ -270,6 +372,21 @@ Edit `config.yaml` → `scoring.weights` (must sum to 1.0).
 
 **Generate just the .tex source (no PDF compilation):**
 `tycho generate <id> --format tex`
+
+**Generate DOCX only:**
+`tycho generate <id> --format docx`
+
+**Generate CV with cover letter:**
+`tycho generate <id> --cover-letter`
+
+**Generate without LLM (Phase 1 behavior):**
+`tycho generate <id> --no-llm`
+
+**Use developer CV template:**
+`tycho generate <id> --template developer_cv`
+
+**Install with specific LLM provider:**
+`pip install tycho[anthropic]` or `pip install tycho[all-llm]`
 
 **Start web dashboard:**
 `tycho serve` (default: http://0.0.0.0:8000)

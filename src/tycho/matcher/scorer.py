@@ -19,7 +19,7 @@ def score_job(
     kw_score = _keyword_match_score(job_keywords, profile)
     title_score = _title_match_score(job.title, profile)
     skills_score = _skills_overlap_score(job_keywords, profile)
-    loc_score = _location_match_score(job.location, profile)
+    loc_score = _location_match_score(job.location, config)
 
     total = (
         weights.keyword_match * kw_score
@@ -92,22 +92,27 @@ def _skills_overlap_score(job_keywords: list[str], profile: Profile) -> float:
     return len(intersection) / len(union) if union else 0.0
 
 
-def _location_match_score(job_location: str, profile: Profile) -> float:
-    """Binary match against preferred locations."""
+def _location_match_score(job_location: str, config: ScoringConfig) -> float:
+    """Binary match against preferred locations using word-boundary regex."""
     if not job_location:
         return 0.5  # Unknown location gets partial score
 
+    loc_cfg = config.locations
     job_loc = job_location.lower()
 
-    # "remote" / "remoto" always matches
-    if "remote" in job_loc or "remoto" in job_loc:
-        return 1.0
+    # Expand abbreviations (word-boundary match, e.g. standalone "ES" → "spain")
+    for abbrev, full in loc_cfg.abbreviations.items():
+        job_loc = re.sub(rf"\b{re.escape(abbrev)}\b", full.lower(), job_loc, flags=re.IGNORECASE)
 
-    # Check against profile experience locations and personal info
-    known_locations = ["madrid", "london", "edinburgh", "spain", "uk", "remote",
-                       "remoto", "españa", "reino unido", "edimburgo", "londres"]
-    for loc in known_locations:
-        if loc in job_loc:
+    # Check remote keywords with word boundaries
+    for kw in loc_cfg.remote_keywords:
+        if re.search(rf"\b{re.escape(kw)}\b", job_loc, flags=re.IGNORECASE):
+            return 1.0
+
+    # Check all preferred locations (both lists) with word boundaries
+    all_preferred = loc_cfg.preferred + loc_cfg.preferred_es
+    for loc in all_preferred:
+        if re.search(rf"\b{re.escape(loc)}\b", job_loc, flags=re.IGNORECASE):
             return 1.0
 
     return 0.0

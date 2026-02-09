@@ -13,6 +13,25 @@ scoring:
   thresholds:
     high_interest: 0.75
     low_interest: 0.30
+  locations:
+    preferred:
+      - madrid
+      - london
+      - edinburgh
+      - spain
+      - uk
+    preferred_es:
+      - españa
+      - reino unido
+      - edimburgo
+      - londres
+    remote_keywords:
+      - remote
+      - remoto
+    abbreviations:
+      md: madrid
+      es: spain
+      gb: united kingdom
 
 llm:
   provider: "anthropic"
@@ -27,7 +46,7 @@ cover_letter:
 output:
   formats: ["pdf", "docx"]
   language: "en"
-  template: "ats_resume"
+  template: "developer_cv"
 
 profile_dir: "profile"
 db_path: "tycho.db"
@@ -39,3 +58,7 @@ telegram:
   allowed_users:
     - 4042272
   page_size: 5
+
+scheduler:
+  enabled: true
+  cron: "0 8 * * *"

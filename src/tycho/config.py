@@ -26,9 +26,17 @@ class ScoringThresholds(BaseModel):
     low_interest: float = 0.30
 
 
+class LocationConfig(BaseModel):
+    preferred: list[str] = ["madrid", "london", "edinburgh", "spain", "uk"]
+    preferred_es: list[str] = ["españa", "reino unido", "edimburgo", "londres"]
+    remote_keywords: list[str] = ["remote", "remoto"]
+    abbreviations: dict[str, str] = Field(default_factory=dict)
+
+
 class ScoringConfig(BaseModel):
     weights: ScoringWeights = ScoringWeights()
     thresholds: ScoringThresholds = ScoringThresholds()
+    locations: LocationConfig = LocationConfig()
 
 
 class LLMConfig(BaseModel):
