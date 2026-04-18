@@ -118,6 +118,31 @@ def load_template(
         return template_string, [], meta
 
 
+def _coerce_params(params: dict[str, Any], param_defs: dict[str, dict]) -> dict[str, Any]:
+    """Cast params to their declared types (bool, float) based on template.yaml definitions.
+
+    All CLI-supplied values arrive as strings; this ensures `show_photo=false`
+    becomes Python `False` rather than the truthy string `"false"`.
+    """
+    result = {}
+    for key, value in params.items():
+        pdef = param_defs.get(key, {})
+        ptype = pdef.get("type", "")
+        if isinstance(value, str):
+            if ptype == "bool":
+                result[key] = value.lower() not in ("false", "0", "no", "")
+            elif ptype == "float":
+                try:
+                    result[key] = float(value)
+                except ValueError:
+                    result[key] = value  # leave as-is if unparseable
+            else:
+                result[key] = value
+        else:
+            result[key] = value
+    return result
+
+
 def _latex_escape(text: str) -> str:
     """Escape special LaTeX characters."""
     replacements = {
@@ -184,9 +209,9 @@ def render_latex(
         for pname, pdef in meta.params.items():
             if "default" in pdef:
                 merged_params[pname] = pdef["default"]
-        # Override with config params, then CLI params
-        merged_params.update(_config_params)
-        merged_params.update(_cli_params)
+        # Override with config params, then CLI params; coerce types against declarations
+        merged_params.update(_coerce_params(_config_params, meta.params))
+        merged_params.update(_coerce_params(_cli_params, meta.params))
     elif template_params:
         merged_params = dict(template_params)
 
@@ -235,8 +260,8 @@ def build_pdf(
         for pname, pdef in meta.params.items():
             if "default" in pdef:
                 merged_params[pname] = pdef["default"]
-        merged_params.update(_config_params)
-        merged_params.update(_cli_params)
+        merged_params.update(_coerce_params(_config_params, meta.params))
+        merged_params.update(_coerce_params(_cli_params, meta.params))
     elif template_params:
         merged_params = dict(template_params)
 

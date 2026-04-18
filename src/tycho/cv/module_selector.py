@@ -145,21 +145,20 @@ def select_modules(
         if not exp.enabled:
             continue
         entry = _tailor_experience(exp, job_keywords, language, max_bullets_per_entry)
-        if entry:
-            if llm_client is not None and getattr(llm_client, "available", False):
-                try:
-                    rewritten = _llm_rewrite_bullets(
-                        llm_client,
-                        [b.text for b in entry.bullets],
-                        job.title,
-                        job.company or "",
-                        job.description or "",
-                    )
-                    for bullet, new_text in zip(entry.bullets, rewritten):
-                        bullet.text = new_text
-                except Exception:
-                    logger.debug("LLM bullet rewrite failed for experience entry, using originals", exc_info=True)
-            experience.append(entry)
+        if llm_client is not None and getattr(llm_client, "available", False):
+            try:
+                rewritten = _llm_rewrite_bullets(
+                    llm_client,
+                    [b.text for b in entry.bullets],
+                    job.title,
+                    job.company or "",
+                    job.description or "",
+                )
+                for bullet, new_text in zip(entry.bullets, rewritten):
+                    bullet.text = new_text
+            except Exception:
+                logger.debug("LLM bullet rewrite failed for experience entry, using originals", exc_info=True)
+        experience.append(entry)
 
     # Tailor education entries
     education = []
@@ -167,21 +166,20 @@ def select_modules(
         if not edu.enabled:
             continue
         entry = _tailor_education(edu, job_keywords, language, max_bullets_per_entry)
-        if entry:
-            if llm_client is not None and getattr(llm_client, "available", False):
-                try:
-                    rewritten = _llm_rewrite_bullets(
-                        llm_client,
-                        [b.text for b in entry.bullets],
-                        job.title,
-                        job.company or "",
-                        job.description or "",
-                    )
-                    for bullet, new_text in zip(entry.bullets, rewritten):
-                        bullet.text = new_text
-                except Exception:
-                    logger.debug("LLM bullet rewrite failed for education entry, using originals", exc_info=True)
-            education.append(entry)
+        if llm_client is not None and getattr(llm_client, "available", False):
+            try:
+                rewritten = _llm_rewrite_bullets(
+                    llm_client,
+                    [b.text for b in entry.bullets],
+                    job.title,
+                    job.company or "",
+                    job.description or "",
+                )
+                for bullet, new_text in zip(entry.bullets, rewritten):
+                    bullet.text = new_text
+            except Exception:
+                logger.debug("LLM bullet rewrite failed for education entry, using originals", exc_info=True)
+        education.append(entry)
 
     # Tailor other entries
     other = []
@@ -189,21 +187,20 @@ def select_modules(
         if not oth.enabled:
             continue
         entry = _tailor_other(oth, job_keywords, language, max_bullets_per_entry)
-        if entry:
-            if llm_client is not None and getattr(llm_client, "available", False):
-                try:
-                    rewritten = _llm_rewrite_bullets(
-                        llm_client,
-                        [b.text for b in entry.bullets],
-                        job.title,
-                        job.company or "",
-                        job.description or "",
-                    )
-                    for bullet, new_text in zip(entry.bullets, rewritten):
-                        bullet.text = new_text
-                except Exception:
-                    logger.debug("LLM bullet rewrite failed for other entry, using originals", exc_info=True)
-            other.append(entry)
+        if llm_client is not None and getattr(llm_client, "available", False):
+            try:
+                rewritten = _llm_rewrite_bullets(
+                    llm_client,
+                    [b.text for b in entry.bullets],
+                    job.title,
+                    job.company or "",
+                    job.description or "",
+                )
+                for bullet, new_text in zip(entry.bullets, rewritten):
+                    bullet.text = new_text
+            except Exception:
+                logger.debug("LLM bullet rewrite failed for other entry, using originals", exc_info=True)
+        other.append(entry)
 
     # Use appropriate phone based on language
     personal = profile.personal
@@ -258,7 +255,7 @@ def _score_bullet(bullet: Bullet, job_keywords: set[str]) -> float:
     if not bullet.tags:
         return 0.0
     tag_overlap = len(set(t.lower() for t in bullet.tags) & job_keywords)
-    priority_bonus = (4 - bullet.priority) / 3
+    priority_bonus = max(0.0, (4 - bullet.priority) / 3)
     return tag_overlap + priority_bonus
 
 
