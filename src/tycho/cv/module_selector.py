@@ -1,12 +1,14 @@
 """Select and rank profile modules for a specific job.
 
 Phase 1: Tag-based selection only.
-Phase 2: LLM re-ranking and rewriting.
+Phase 2: LLM rewriting of bullets and summary.
 """
 
 from __future__ import annotations
 
 import logging
+
+from pydantic import BaseModel as PydanticBaseModel
 
 from tycho.matcher.keywords import extract_keywords
 from tycho.models import (
@@ -25,6 +27,93 @@ from tycho.models import (
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# LLM rewrite schemas
+# ---------------------------------------------------------------------------
+
+
+class RewrittenBullets(PydanticBaseModel):
+    bullets: list[str]
+
+
+class RewrittenSummary(PydanticBaseModel):
+    summary: str
+
+
+# ---------------------------------------------------------------------------
+# LLM rewrite helpers
+# ---------------------------------------------------------------------------
+
+
+def _llm_rewrite_bullets(
+    llm_client,
+    bullets: list[str],
+    job_title: str,
+    job_company: str,
+    job_description: str,
+) -> list[str]:
+    """Rewrite selected bullets to match job language. Falls back to originals on any failure."""
+    if not bullets:
+        return bullets
+    prompt = f"""You are tailoring a CV for a job application.
+
+Job: {job_title} at {job_company}
+Description excerpt:
+{(job_description or "")[:600]}
+
+Rewrite each bullet point to better match this role's language and emphasis.
+
+Rules:
+- Do not invent facts, metrics, tools, or achievements not in the original
+- Preserve all quantitative claims exactly (e.g. "<20ms", "20+ projects")
+- Use vocabulary from the job description where it fits naturally
+- Keep bullets concise (1-2 lines max)
+- Return exactly {len(bullets)} bullets in the same order
+
+Bullets:
+{chr(10).join(f'{i+1}. {b}' for i, b in enumerate(bullets))}
+"""
+    result = llm_client.invoke_structured(prompt, RewrittenBullets)
+    if len(result.bullets) != len(bullets):
+        return bullets  # fallback: wrong count
+    return result.bullets
+
+
+def _llm_rewrite_summary(
+    llm_client,
+    summary: str,
+    job_title: str,
+    job_company: str,
+    job_description: str,
+) -> str:
+    """Rewrite summary to match job. Falls back to original on any failure."""
+    if not summary:
+        return summary
+    prompt = f"""You are tailoring a CV for a job application.
+
+Job: {job_title} at {job_company}
+Description excerpt:
+{(job_description or "")[:600]}
+
+Rewrite the following professional summary to better match this role.
+
+Rules:
+- Do not invent facts or experience not present in the original
+- Keep it concise (2-4 sentences max)
+- Use vocabulary from the job description where it fits naturally
+
+Summary:
+{summary}
+"""
+    result = llm_client.invoke_structured(prompt, RewrittenSummary)
+    return result.summary or summary
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
 def select_modules(
     profile: Profile,
     job: Job,
@@ -35,20 +124,17 @@ def select_modules(
     """Select and tailor profile modules for a specific job."""
     job_keywords = set(extract_keywords(job.description, profile, llm_client=llm_client))
 
-    # Determine best focus area based on job keywords
-    focus = _detect_focus(job_keywords, job.title)
-
-    # If tag-based focus is inconclusive and LLM is available, try LLM detection
-    if focus is None and llm_client is not None and getattr(llm_client, "available", False):
-        try:
-            llm_focus = _detect_focus_llm(job, llm_client)
-            if llm_focus:
-                focus = llm_focus
-        except Exception:
-            logger.debug("LLM focus detection failed, using tag-based result", exc_info=True)
-
     # Select summary variation
-    summary = _select_summary(profile, focus, language)
+    summary = _select_summary(profile, language)
+
+    # Optionally rewrite summary with LLM
+    if llm_client is not None and getattr(llm_client, "available", False):
+        try:
+            summary = _llm_rewrite_summary(
+                llm_client, summary, job.title, job.company or "", job.description or ""
+            )
+        except Exception:
+            logger.debug("LLM summary rewrite failed, using original", exc_info=True)
 
     # Select top skills relevant to job
     skills = _select_skills(profile, job_keywords)
@@ -58,8 +144,21 @@ def select_modules(
     for exp in profile.experience:
         if not exp.enabled:
             continue
-        entry = _tailor_experience(exp, job_keywords, focus, language, max_bullets_per_entry)
+        entry = _tailor_experience(exp, job_keywords, language, max_bullets_per_entry)
         if entry:
+            if llm_client is not None and getattr(llm_client, "available", False):
+                try:
+                    rewritten = _llm_rewrite_bullets(
+                        llm_client,
+                        [b.text for b in entry.bullets],
+                        job.title,
+                        job.company or "",
+                        job.description or "",
+                    )
+                    for bullet, new_text in zip(entry.bullets, rewritten):
+                        bullet.text = new_text
+                except Exception:
+                    logger.debug("LLM bullet rewrite failed for experience entry, using originals", exc_info=True)
             experience.append(entry)
 
     # Tailor education entries
@@ -67,8 +166,21 @@ def select_modules(
     for edu in profile.education:
         if not edu.enabled:
             continue
-        entry = _tailor_education(edu, job_keywords, focus, language, max_bullets_per_entry)
+        entry = _tailor_education(edu, job_keywords, language, max_bullets_per_entry)
         if entry:
+            if llm_client is not None and getattr(llm_client, "available", False):
+                try:
+                    rewritten = _llm_rewrite_bullets(
+                        llm_client,
+                        [b.text for b in entry.bullets],
+                        job.title,
+                        job.company or "",
+                        job.description or "",
+                    )
+                    for bullet, new_text in zip(entry.bullets, rewritten):
+                        bullet.text = new_text
+                except Exception:
+                    logger.debug("LLM bullet rewrite failed for education entry, using originals", exc_info=True)
             education.append(entry)
 
     # Tailor other entries
@@ -76,14 +188,27 @@ def select_modules(
     for oth in profile.other:
         if not oth.enabled:
             continue
-        entry = _tailor_other(oth, job_keywords, focus, language, max_bullets_per_entry)
+        entry = _tailor_other(oth, job_keywords, language, max_bullets_per_entry)
         if entry:
+            if llm_client is not None and getattr(llm_client, "available", False):
+                try:
+                    rewritten = _llm_rewrite_bullets(
+                        llm_client,
+                        [b.text for b in entry.bullets],
+                        job.title,
+                        job.company or "",
+                        job.description or "",
+                    )
+                    for bullet, new_text in zip(entry.bullets, rewritten):
+                        bullet.text = new_text
+                except Exception:
+                    logger.debug("LLM bullet rewrite failed for other entry, using originals", exc_info=True)
             other.append(entry)
 
     # Use appropriate phone based on language
     personal = profile.personal
 
-    tailored = TailoredProfile(
+    return TailoredProfile(
         personal=personal,
         summary=summary,
         skills=skills,
@@ -92,89 +217,16 @@ def select_modules(
         education=education,
         other=other,
         job_id=job.id,
-        focus=focus,
+        focus=None,
     )
 
-    # LLM re-ranking of bullets if available
-    if llm_client is not None and getattr(llm_client, "available", False):
-        try:
-            tailored = _llm_rerank_bullets(tailored, job, llm_client, max_bullets_per_entry)
-        except Exception:
-            logger.debug("LLM bullet re-ranking failed, using tag-based ranking", exc_info=True)
 
-    return tailored
+# ---------------------------------------------------------------------------
+# Summary / skills
+# ---------------------------------------------------------------------------
 
 
-def _detect_focus(job_keywords: set[str], job_title: str) -> str | None:
-    """Detect the best focus area based on job keywords and title."""
-    title_lower = job_title.lower()
-
-    ml_indicators = {"pytorch", "tensorflow", "machine learning", "deep learning",
-                     "computer vision", "nlp", "onnx", "cuda", "ml"}
-    backend_indicators = {"backend", "api", "fastapi", "django", "flask",
-                         "microservices", "docker", "kubernetes"}
-    data_indicators = {"data science", "data engineer", "analytics", "pandas",
-                      "statistics", "data"}
-
-    ml_score = len(job_keywords & ml_indicators) + (2 if "ml" in title_lower or "machine learning" in title_lower else 0)
-    backend_score = len(job_keywords & backend_indicators) + (2 if "backend" in title_lower or "software" in title_lower else 0)
-    data_score = len(job_keywords & data_indicators) + (2 if "data" in title_lower else 0)
-
-    scores = {"ml_focus": ml_score, "backend_focus": backend_score, "data_focus": data_score}
-    best = max(scores, key=scores.get)
-
-    return best if scores[best] > 0 else None
-
-
-def _detect_focus_llm(job: Job, llm_client) -> str | None:
-    """Ask the LLM to classify the job's focus area."""
-    prompt = (
-        "Classify this job into exactly one focus area. "
-        "Reply with ONLY one of: ml_focus, backend_focus, data_focus\n"
-        "If none fits clearly, reply with: none\n\n"
-        f"Title: {job.title}\n"
-        f"Description: {job.description[:1500]}"
-    )
-    response = llm_client.invoke(prompt).strip().lower()
-    if response in ("ml_focus", "backend_focus", "data_focus"):
-        return response
-    return None
-
-
-def _llm_rerank_bullets(
-    tailored: TailoredProfile, job: Job, llm_client, max_bullets: int
-) -> TailoredProfile:
-    """Ask the LLM to re-rank bullets in each entry by relevance to the job."""
-    for entry in tailored.experience + tailored.education + tailored.other:
-        if len(entry.bullets) <= 1:
-            continue
-
-        bullet_texts = "\n".join(
-            f"{i+1}. {b.text}" for i, b in enumerate(entry.bullets)
-        )
-        prompt = (
-            f"Given this job: {job.title} at {job.company}\n"
-            f"Job description (excerpt): {job.description[:1000]}\n\n"
-            f"Rank these bullets by relevance to the job (most relevant first). "
-            f"Reply with ONLY the numbers in order, comma-separated (e.g., '2,1,3'):\n\n"
-            f"{bullet_texts}"
-        )
-        response = llm_client.invoke(prompt).strip()
-
-        # Parse the ranking
-        try:
-            indices = [int(x.strip()) - 1 for x in response.split(",")]
-            # Validate indices
-            if sorted(indices) == list(range(len(entry.bullets))):
-                reranked = [entry.bullets[i] for i in indices]
-                entry.bullets = reranked[:max_bullets]
-        except (ValueError, IndexError):
-            pass  # Keep original order on parse failure
-
-    return tailored
-
-
-def _select_summary(profile: Profile, focus: str | None, language: str) -> str:
+def _select_summary(profile: Profile, language: str) -> str:
     """Select the best summary variation."""
     return profile.personal.summary
 
@@ -196,6 +248,11 @@ def _select_skills(profile: Profile, job_keywords: set[str]) -> list[str]:
     return [name for name, _ in scored_skills[:15]]
 
 
+# ---------------------------------------------------------------------------
+# Bullet scoring / text helpers
+# ---------------------------------------------------------------------------
+
+
 def _score_bullet(bullet: Bullet, job_keywords: set[str]) -> float:
     """Score a bullet by tag overlap with job keywords."""
     if not bullet.tags:
@@ -205,8 +262,8 @@ def _score_bullet(bullet: Bullet, job_keywords: set[str]) -> float:
     return tag_overlap + priority_bonus
 
 
-def _get_bullet_text(bullet: Bullet, focus: str | None, language: str) -> str:
-    """Get the best text for a bullet based on focus and language."""
+def _get_bullet_text(bullet: Bullet, language: str) -> str:
+    """Get the best text for a bullet based on language."""
     # Try language-specific text
     if language == "es" and bullet.text_es:
         return bullet.text_es
@@ -214,10 +271,14 @@ def _get_bullet_text(bullet: Bullet, focus: str | None, language: str) -> str:
     return bullet.text
 
 
+# ---------------------------------------------------------------------------
+# Entry tailoring
+# ---------------------------------------------------------------------------
+
+
 def _tailor_experience(
     exp: ExperienceModule,
     job_keywords: set[str],
-    focus: str | None,
     language: str,
     max_bullets: int,
 ) -> TailoredEntry:
@@ -231,7 +292,7 @@ def _tailor_experience(
 
     tailored_bullets = [
         TailoredBullet(
-            text=_get_bullet_text(b, focus, language),
+            text=_get_bullet_text(b, language),
             relevance_score=score,
         )
         for b, score in selected
@@ -257,7 +318,6 @@ def _tailor_experience(
 def _tailor_education(
     edu: EducationModule,
     job_keywords: set[str],
-    focus: str | None,
     language: str,
     max_bullets: int,
 ) -> TailoredEntry:
@@ -270,7 +330,7 @@ def _tailor_education(
 
     tailored_bullets = [
         TailoredBullet(
-            text=_get_bullet_text(b, focus, language),
+            text=_get_bullet_text(b, language),
             relevance_score=score,
         )
         for b, score in selected
@@ -296,7 +356,6 @@ def _tailor_education(
 def _tailor_other(
     oth: OtherModule,
     job_keywords: set[str],
-    focus: str | None,
     language: str,
     max_bullets: int,
 ) -> TailoredEntry:
@@ -309,7 +368,7 @@ def _tailor_other(
 
     tailored_bullets = [
         TailoredBullet(
-            text=_get_bullet_text(b, focus, language),
+            text=_get_bullet_text(b, language),
             relevance_score=score,
         )
         for b, score in selected

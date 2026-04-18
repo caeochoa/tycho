@@ -5,62 +5,26 @@ from unittest.mock import MagicMock
 import pytest
 
 from tycho.cv.module_selector import (
-    _detect_focus,
-    _detect_focus_llm,
     _get_bullet_text,
-    _llm_rerank_bullets,
+    _llm_rewrite_bullets,
+    _llm_rewrite_summary,
     _score_bullet,
     _select_skills,
     _select_summary,
     select_modules,
 )
 from tycho.models import Bullet
-
-
-class TestDetectFocus:
-    def test_ml_focus(self):
-        keywords = {"pytorch", "tensorflow", "deep learning", "cuda"}
-        focus = _detect_focus(keywords, "ML Engineer")
-        assert focus == "ml_focus"
-
-    def test_backend_focus(self):
-        keywords = {"docker", "kubernetes", "fastapi", "microservices"}
-        focus = _detect_focus(keywords, "Backend Engineer")
-        assert focus == "backend_focus"
-
-    def test_data_focus(self):
-        keywords = {"pandas", "statistics", "analytics"}
-        focus = _detect_focus(keywords, "Data Scientist")
-        assert focus == "data_focus"
-
-    def test_title_gives_bonus(self):
-        # "machine learning" in title should boost ml_focus
-        keywords = {"python"}  # neutral keyword
-        focus = _detect_focus(keywords, "Machine Learning Engineer")
-        assert focus == "ml_focus"
-
-    def test_no_focus(self):
-        keywords = {"communication", "teamwork"}
-        focus = _detect_focus(keywords, "Manager")
-        assert focus is None
-
-    def test_empty_keywords(self):
-        focus = _detect_focus(set(), "Generic Role")
-        assert focus is None
+from tycho.cv.module_selector import RewrittenBullets, RewrittenSummary
 
 
 class TestSelectSummary:
     def test_returns_summary_string(self, sample_profile):
-        summary = _select_summary(sample_profile, "ml_focus", "en")
+        summary = _select_summary(sample_profile, "en")
         assert isinstance(summary, str)
         assert summary != ""
 
-    def test_no_focus_returns_summary(self, sample_profile):
-        summary = _select_summary(sample_profile, None, "en")
-        assert summary == sample_profile.personal.summary
-
-    def test_unknown_focus_returns_summary(self, sample_profile):
-        summary = _select_summary(sample_profile, "nonexistent_focus", "en")
+    def test_returns_plain_summary(self, sample_profile):
+        summary = _select_summary(sample_profile, "en")
         assert summary == sample_profile.personal.summary
 
 
@@ -110,23 +74,15 @@ class TestScoreBullet:
 class TestGetBulletText:
     def test_default_text(self):
         bullet = Bullet(text="Default text")
-        assert _get_bullet_text(bullet, None, "en") == "Default text"
-
-    def test_focus_ignored_returns_default(self):
-        bullet = Bullet(text="Default text")
-        assert _get_bullet_text(bullet, "ml_focus", "en") == "Default text"
+        assert _get_bullet_text(bullet, "en") == "Default text"
 
     def test_spanish_text(self):
         bullet = Bullet(text="Default", text_es="Texto en español")
-        assert _get_bullet_text(bullet, None, "es") == "Texto en español"
-
-    def test_spanish_takes_priority(self):
-        bullet = Bullet(text="Default", text_es="Spanish text")
-        assert _get_bullet_text(bullet, "ml_focus", "es") == "Spanish text"
+        assert _get_bullet_text(bullet, "es") == "Texto en español"
 
     def test_empty_spanish_falls_to_default(self):
         bullet = Bullet(text="Default", text_es="")
-        assert _get_bullet_text(bullet, "ml_focus", "es") == "Default"
+        assert _get_bullet_text(bullet, "es") == "Default"
 
 
 class TestSelectModules:
@@ -176,9 +132,10 @@ class TestSelectModules:
             for bullet in entry.bullets:
                 assert isinstance(bullet.relevance_score, float)
 
-    def test_focus_field_set(self, sample_profile, ml_job):
+    def test_focus_field_is_none(self, sample_profile, ml_job):
+        """focus is always None — focus detection removed."""
         tailored = select_modules(sample_profile, ml_job)
-        assert tailored.focus is not None
+        assert tailored.focus is None
 
     def test_no_llm_client_phase1_behavior(self, sample_profile, ml_job):
         """No LLM client should produce same results as Phase 1."""
@@ -187,52 +144,90 @@ class TestSelectModules:
         assert len(tailored.experience) > 0
 
 
-class TestLLMFocusDetection:
-    def test_llm_focus_detection(self, ml_job, mock_llm_client):
-        mock_llm_client.invoke.return_value = "ml_focus"
-        focus = _detect_focus_llm(ml_job, mock_llm_client)
-        assert focus == "ml_focus"
+class TestLLMRewriteBullets:
+    def test_rewrite_called_and_replaces_text(self, mock_llm_client):
+        mock_llm_client.invoke_structured.return_value = RewrittenBullets(
+            bullets=["Rewritten bullet A", "Rewritten bullet B"]
+        )
+        originals = ["Original bullet A", "Original bullet B"]
+        result = _llm_rewrite_bullets(
+            mock_llm_client, originals, "ML Engineer", "DeepTech", "Python, PyTorch"
+        )
+        assert result == ["Rewritten bullet A", "Rewritten bullet B"]
+        mock_llm_client.invoke_structured.assert_called_once()
 
-    def test_llm_focus_detection_none(self, ml_job, mock_llm_client):
-        mock_llm_client.invoke.return_value = "none"
-        focus = _detect_focus_llm(ml_job, mock_llm_client)
-        assert focus is None
+    def test_wrong_count_falls_back(self, mock_llm_client):
+        mock_llm_client.invoke_structured.return_value = RewrittenBullets(
+            bullets=["Only one bullet"]
+        )
+        originals = ["Bullet 1", "Bullet 2"]
+        result = _llm_rewrite_bullets(
+            mock_llm_client, originals, "Title", "Co", "desc"
+        )
+        assert result == originals  # fallback
 
-    def test_llm_focus_detection_invalid(self, ml_job, mock_llm_client):
-        mock_llm_client.invoke.return_value = "something_random"
-        focus = _detect_focus_llm(ml_job, mock_llm_client)
-        assert focus is None
+    def test_empty_bullets_returns_empty(self, mock_llm_client):
+        result = _llm_rewrite_bullets(mock_llm_client, [], "Title", "Co", "desc")
+        assert result == []
+        mock_llm_client.invoke_structured.assert_not_called()
+
+    def test_exception_propagates(self, mock_llm_client):
+        """_llm_rewrite_bullets itself propagates — caller wraps in try/except."""
+        mock_llm_client.invoke_structured.side_effect = RuntimeError("API error")
+        with pytest.raises(RuntimeError):
+            _llm_rewrite_bullets(mock_llm_client, ["bullet"], "Title", "Co", "desc")
 
 
-class TestLLMReranking:
-    def test_llm_reranking_reorders_bullets(self, sample_profile, ml_job, mock_llm_client):
-        tailored = select_modules(sample_profile, ml_job)
+class TestLLMRewriteSummary:
+    def test_rewrite_returns_new_summary(self, mock_llm_client):
+        mock_llm_client.invoke_structured.return_value = RewrittenSummary(
+            summary="Tailored summary text."
+        )
+        result = _llm_rewrite_summary(
+            mock_llm_client, "Original summary.", "ML Engineer", "DeepTech", "desc"
+        )
+        assert result == "Tailored summary text."
 
-        # Mock LLM to reverse bullet order for entries with 2 bullets
-        mock_llm_client.invoke.return_value = "2,1"
+    def test_empty_summary_returns_empty(self, mock_llm_client):
+        result = _llm_rewrite_summary(mock_llm_client, "", "Title", "Co", "desc")
+        assert result == ""
+        mock_llm_client.invoke_structured.assert_not_called()
 
-        result = _llm_rerank_bullets(tailored, ml_job, mock_llm_client, max_bullets=4)
-        # Should have called invoke for entries with >1 bullet
-        assert mock_llm_client.invoke.called
+    def test_exception_propagates(self, mock_llm_client):
+        mock_llm_client.invoke_structured.side_effect = RuntimeError("API error")
+        with pytest.raises(RuntimeError):
+            _llm_rewrite_summary(mock_llm_client, "Summary", "Title", "Co", "desc")
 
-    def test_llm_reranking_failure_preserves_order(self, sample_profile, ml_job, mock_llm_client):
-        tailored = select_modules(sample_profile, ml_job)
-        original_bullets = [
-            [b.text for b in entry.bullets] for entry in tailored.experience
-        ]
 
-        # Mock LLM to return invalid response
-        mock_llm_client.invoke.return_value = "invalid response"
+class TestSelectModulesWithLLM:
+    def test_select_modules_with_llm_rewrites(self, sample_profile, ml_job, mock_llm_client):
+        """LLM client integration: rewrites are applied through select_modules."""
+        mock_llm_client.invoke_structured.return_value = RewrittenBullets(
+            bullets=["Rewritten bullet"]
+        )
+        # Override for summary call (first invoke_structured call)
+        rewritten_summary = RewrittenSummary(summary="Tailored summary.")
+        rewritten_bullets_single = RewrittenBullets(bullets=["Rewritten bullet"])
+        rewritten_bullets_double = RewrittenBullets(bullets=["Rewritten bullet A", "Rewritten bullet B"])
 
-        result = _llm_rerank_bullets(tailored, ml_job, mock_llm_client, max_bullets=4)
-        # Bullet order should be preserved
-        for i, entry in enumerate(result.experience):
-            assert [b.text for b in entry.bullets] == original_bullets[i]
+        def structured_side_effect(prompt, schema):
+            if schema is RewrittenSummary:
+                return rewritten_summary
+            elif schema is RewrittenBullets:
+                # Count bullets in prompt to return correct number
+                count = prompt.count("\n1. ") + prompt.count("\n2. ") + prompt.count("\n3. ")
+                if "2." in prompt:
+                    return rewritten_bullets_double
+                return rewritten_bullets_single
+            # LLMKeywordResult for keyword extraction
+            from tycho.models import LLMKeywordResult
+            return LLMKeywordResult(
+                keywords=["python", "pytorch"],
+                required_skills=["python"],
+                nice_to_have_skills=[],
+            )
 
-    def test_select_modules_with_llm(self, sample_profile, ml_job, mock_llm_client):
-        """LLM client integration through select_modules."""
-        # Mock reranking response
-        mock_llm_client.invoke.return_value = "1,2"
+        mock_llm_client.invoke_structured.side_effect = structured_side_effect
 
         tailored = select_modules(sample_profile, ml_job, llm_client=mock_llm_client)
         assert tailored.job_id == ml_job.id
@@ -240,10 +235,20 @@ class TestLLMReranking:
 
     def test_select_modules_llm_failure_graceful(self, sample_profile, ml_job, mock_llm_client):
         """LLM failures should not break select_modules."""
-        mock_llm_client.invoke.side_effect = RuntimeError("API error")
-        mock_llm_client.invoke_structured.side_effect = RuntimeError("API error")
+        from tycho.models import LLMKeywordResult
 
-        # Should still work, falling back to Phase 1 behavior
+        def structured_side_effect(prompt, schema):
+            if schema is RewrittenSummary or schema is RewrittenBullets:
+                raise RuntimeError("API error")
+            return LLMKeywordResult(
+                keywords=["python"],
+                required_skills=["python"],
+                nice_to_have_skills=[],
+            )
+
+        mock_llm_client.invoke_structured.side_effect = structured_side_effect
+
+        # Should still work, falling back to original text
         tailored = select_modules(sample_profile, ml_job, llm_client=mock_llm_client)
         assert tailored.job_id == ml_job.id
         assert len(tailored.experience) > 0
