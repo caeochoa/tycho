@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -56,6 +57,7 @@ class OutputConfig(BaseModel):
     formats: list[str] = ["pdf"]
     language: str = "en"
     template: str = "ats_resume"
+    template_params: dict[str, Any] = {}
 
 
 class WebConfig(BaseModel):
