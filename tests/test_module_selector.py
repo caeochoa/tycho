@@ -14,7 +14,7 @@ from tycho.cv.module_selector import (
     _select_summary,
     select_modules,
 )
-from tycho.models import Bullet, BulletVariations
+from tycho.models import Bullet
 
 
 class TestDetectFocus:
@@ -50,21 +50,18 @@ class TestDetectFocus:
 
 
 class TestSelectSummary:
-    def test_ml_focus_variation(self, sample_profile):
+    def test_returns_summary_string(self, sample_profile):
         summary = _select_summary(sample_profile, "ml_focus", "en")
-        assert "ML Engineer" in summary or "PyTorch" in summary
+        assert isinstance(summary, str)
+        assert summary != ""
 
-    def test_backend_focus_variation(self, sample_profile):
-        summary = _select_summary(sample_profile, "backend_focus", "en")
-        assert "Software Engineer" in summary or "backend" in summary.lower()
-
-    def test_no_focus_uses_default(self, sample_profile):
+    def test_no_focus_returns_summary(self, sample_profile):
         summary = _select_summary(sample_profile, None, "en")
-        assert summary == sample_profile.personal.summary.default
+        assert summary == sample_profile.personal.summary
 
-    def test_unknown_focus_uses_default(self, sample_profile):
+    def test_unknown_focus_returns_summary(self, sample_profile):
         summary = _select_summary(sample_profile, "nonexistent_focus", "en")
-        assert summary == sample_profile.personal.summary.default
+        assert summary == sample_profile.personal.summary
 
 
 class TestSelectSkills:
@@ -88,23 +85,23 @@ class TestSelectSkills:
 
 class TestScoreBullet:
     def test_matching_tags(self):
-        bullet = Bullet(id="b1", text="Test", tags=["python", "ml", "ai"], priority=1)
+        bullet = Bullet(text="Test", tags=["python", "ml", "ai"], priority=1)
         score = _score_bullet(bullet, {"python", "ml"})
         assert score > 0.0
 
     def test_no_matching_tags(self):
-        bullet = Bullet(id="b1", text="Test", tags=["web", "frontend"], priority=1)
+        bullet = Bullet(text="Test", tags=["web", "frontend"], priority=1)
         score = _score_bullet(bullet, {"python", "ml"})
         assert score > 0.0  # Still gets priority bonus
 
     def test_no_tags(self):
-        bullet = Bullet(id="b1", text="Test", tags=[], priority=1)
+        bullet = Bullet(text="Test", tags=[], priority=1)
         score = _score_bullet(bullet, {"python"})
         assert score == 0.0
 
     def test_priority_affects_score(self):
-        b1 = Bullet(id="b1", text="Test", tags=["python"], priority=1)
-        b3 = Bullet(id="b3", text="Test", tags=["python"], priority=3)
+        b1 = Bullet(text="Test", tags=["python"], priority=1)
+        b3 = Bullet(text="Test", tags=["python"], priority=3)
         score1 = _score_bullet(b1, {"python"})
         score3 = _score_bullet(b3, {"python"})
         assert score1 > score3
@@ -112,43 +109,24 @@ class TestScoreBullet:
 
 class TestGetBulletText:
     def test_default_text(self):
-        bullet = Bullet(id="b1", text="Default text")
+        bullet = Bullet(text="Default text")
         assert _get_bullet_text(bullet, None, "en") == "Default text"
 
-    def test_ml_focus_variation(self):
-        bullet = Bullet(
-            id="b1",
-            text="Default text",
-            variations=BulletVariations(ml_focus="ML version"),
-        )
-        assert _get_bullet_text(bullet, "ml_focus", "en") == "ML version"
+    def test_focus_ignored_returns_default(self):
+        bullet = Bullet(text="Default text")
+        assert _get_bullet_text(bullet, "ml_focus", "en") == "Default text"
 
     def test_spanish_text(self):
-        bullet = Bullet(id="b1", text="Default", text_es="Texto en español")
+        bullet = Bullet(text="Default", text_es="Texto en español")
         assert _get_bullet_text(bullet, None, "es") == "Texto en español"
 
-    def test_spanish_takes_priority_over_variation(self):
-        bullet = Bullet(
-            id="b1",
-            text="Default",
-            text_es="Spanish text",
-            variations=BulletVariations(ml_focus="ML version"),
-        )
-        # Spanish should take priority when language is "es"
+    def test_spanish_takes_priority(self):
+        bullet = Bullet(text="Default", text_es="Spanish text")
         assert _get_bullet_text(bullet, "ml_focus", "es") == "Spanish text"
 
-    def test_empty_spanish_falls_to_variation(self):
-        bullet = Bullet(
-            id="b1",
-            text="Default",
-            text_es="",
-            variations=BulletVariations(ml_focus="ML version"),
-        )
-        assert _get_bullet_text(bullet, "ml_focus", "es") == "ML version"
-
-    def test_no_variation_falls_to_default(self):
-        bullet = Bullet(id="b1", text="Default", variations=BulletVariations())
-        assert _get_bullet_text(bullet, "ml_focus", "en") == "Default"
+    def test_empty_spanish_falls_to_default(self):
+        bullet = Bullet(text="Default", text_es="")
+        assert _get_bullet_text(bullet, "ml_focus", "es") == "Default"
 
 
 class TestSelectModules:
@@ -160,14 +138,15 @@ class TestSelectModules:
         assert len(tailored.education) > 0
         assert len(tailored.skills) > 0
 
-    def test_ml_job_gets_ml_summary(self, sample_profile, ml_job):
+    def test_ml_job_gets_summary(self, sample_profile, ml_job):
         tailored = select_modules(sample_profile, ml_job)
-        # Should pick ml_focus variation
-        assert "ML" in tailored.summary or "PyTorch" in tailored.summary
+        assert isinstance(tailored.summary, str)
+        assert tailored.summary != ""
 
-    def test_backend_job_gets_backend_summary(self, sample_profile, backend_job):
+    def test_backend_job_gets_summary(self, sample_profile, backend_job):
         tailored = select_modules(sample_profile, backend_job)
-        assert "backend" in tailored.summary.lower() or "Software" in tailored.summary
+        assert isinstance(tailored.summary, str)
+        assert tailored.summary != ""
 
     def test_spanish_language(self, sample_profile, ml_job):
         tailored = select_modules(sample_profile, ml_job, language="es")
@@ -239,7 +218,7 @@ class TestLLMReranking:
     def test_llm_reranking_failure_preserves_order(self, sample_profile, ml_job, mock_llm_client):
         tailored = select_modules(sample_profile, ml_job)
         original_bullets = [
-            [b.id for b in entry.bullets] for entry in tailored.experience
+            [b.text for b in entry.bullets] for entry in tailored.experience
         ]
 
         # Mock LLM to return invalid response
@@ -248,7 +227,7 @@ class TestLLMReranking:
         result = _llm_rerank_bullets(tailored, ml_job, mock_llm_client, max_bullets=4)
         # Bullet order should be preserved
         for i, entry in enumerate(result.experience):
-            assert [b.id for b in entry.bullets] == original_bullets[i]
+            assert [b.text for b in entry.bullets] == original_bullets[i]
 
     def test_select_modules_with_llm(self, sample_profile, ml_job, mock_llm_client):
         """LLM client integration through select_modules."""

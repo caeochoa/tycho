@@ -79,7 +79,7 @@ class TestSkillsOverlapScore:
         assert score == 0.0
 
     def test_both_empty(self):
-        from tycho.models import Profile, PersonalInfo, SkillsData, Summary
+        from tycho.models import Profile, PersonalInfo, SkillsData
         empty_profile = Profile(
             personal=PersonalInfo(name="Test", email="t@t.com"),
             skills=SkillsData(),

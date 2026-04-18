@@ -11,7 +11,6 @@ import yaml
 from tycho.config import CoverLetterConfig, ScoringConfig
 from tycho.models import (
     Bullet,
-    BulletVariations,
     CoverLetter,
     EducationModule,
     ExperienceModule,
@@ -24,8 +23,6 @@ from tycho.models import (
     Profile,
     Skill,
     SkillsData,
-    Summary,
-    SummaryVariations,
     TailoredBullet,
     TailoredEntry,
     TailoredProfile,
@@ -43,14 +40,8 @@ def sample_personal():
         linkedin="linkedin.com/in/caeochoa",
         titles=["AI Engineer", "MSc Design Informatics", "BSc Mathematics"],
         titles_es=["Ingeniero de IA", "MSc Design Informatics", "BSc Mathematics"],
-        summary=Summary(
-            default="AI Engineer with experience in RAG systems.",
-            variations=SummaryVariations(
-                ml_focus="ML Engineer specializing in PyTorch and CV.",
-                backend_focus="Software Engineer with Python backend skills.",
-                data_focus="Data Scientist with mathematics background.",
-            ),
-        ),
+        summary="AI Engineer with experience in RAG systems.",
+        photo_path="",
         hobbies=["Climbing", "Meditation"],
         hobbies_es=["Escalada", "Meditación"],
     )
@@ -93,25 +84,16 @@ def sample_experience():
             skills=["Python", "LangChain", "PyTorch"],
             bullets=[
                 Bullet(
-                    id="oesia_rag",
                     text="Led backend development of OKM, a no-code RAG platform.",
                     text_es="Desarrollo del backend de OKM.",
                     tags=["rag", "llm", "python"],
                     priority=1,
-                    variations=BulletVariations(
-                        ml_focus="Architected RAG pipeline using LangChain.",
-                        backend_focus="Built full-stack no-code platform.",
-                    ),
                 ),
                 Bullet(
-                    id="oesia_cv",
                     text="Optimized computer vision models achieving 3x speedup.",
                     text_es="Optimicé modelos de visión por computador.",
                     tags=["cv", "optimization", "onnx", "cuda"],
                     priority=1,
-                    variations=BulletVariations(
-                        ml_focus="Reduced CV model inference time through ONNX optimization.",
-                    ),
                 ),
             ],
         ),
@@ -127,7 +109,6 @@ def sample_experience():
             skills=["HTML", "CSS", "JavaScript", "React", "SQL"],
             bullets=[
                 Bullet(
-                    id="acturis_projects",
                     text="Led and managed over 20 projects end-to-end.",
                     tags=["project-management"],
                     priority=1,
@@ -153,7 +134,6 @@ def sample_education():
             skills=["Python", "PyTorch", "NumPy"],
             bullets=[
                 Bullet(
-                    id="edinburgh_ml",
                     text="Utilized Python and PyTorch for ML.",
                     tags=["ml", "python"],
                     priority=1,
@@ -178,7 +158,6 @@ def sample_other():
             skills=["JavaScript", "React", "LangChain"],
             bullets=[
                 Bullet(
-                    id="genai_app",
                     text="Developed an educational app with voice recognition and GenAI.",
                     text_es="Desarrollo de una aplicación educativa con IA generativa.",
                     tags=["ai", "llm", "web"],
@@ -296,14 +275,7 @@ def profile_dir(tmp_path, sample_personal, sample_skills, sample_experience, sam
         "linkedin": sample_personal.linkedin,
         "titles": sample_personal.titles,
         "titles_es": sample_personal.titles_es,
-        "summary": {
-            "default": sample_personal.summary.default,
-            "variations": {
-                "ml_focus": sample_personal.summary.variations.ml_focus,
-                "backend_focus": sample_personal.summary.variations.backend_focus,
-                "data_focus": sample_personal.summary.variations.data_focus,
-            },
-        },
+        "summary": sample_personal.summary,
         "hobbies": sample_personal.hobbies,
         "hobbies_es": sample_personal.hobbies_es,
     }
@@ -334,12 +306,10 @@ def profile_dir(tmp_path, sample_personal, sample_skills, sample_experience, sam
             "skills": exp.skills,
             "bullets": [
                 {
-                    "id": b.id,
                     "text": b.text,
                     "text_es": b.text_es,
                     "tags": b.tags,
                     "priority": b.priority,
-                    "variations": {k: v for k, v in b.variations.model_dump().items() if v is not None},
                 }
                 for b in exp.bullets
             ],
@@ -362,7 +332,7 @@ def profile_dir(tmp_path, sample_personal, sample_skills, sample_experience, sam
             "tags": edu.tags,
             "skills": edu.skills,
             "bullets": [
-                {"id": b.id, "text": b.text, "tags": b.tags, "priority": b.priority}
+                {"text": b.text, "tags": b.tags, "priority": b.priority}
                 for b in edu.bullets
             ],
         }
@@ -383,7 +353,7 @@ def profile_dir(tmp_path, sample_personal, sample_skills, sample_experience, sam
             "tags": oth.tags,
             "skills": oth.skills,
             "bullets": [
-                {"id": b.id, "text": b.text, "text_es": b.text_es, "tags": b.tags, "priority": b.priority}
+                {"text": b.text, "text_es": b.text_es, "tags": b.tags, "priority": b.priority}
                 for b in oth.bullets
             ],
         }

@@ -6,7 +6,6 @@ import pytest
 
 from tycho.models import (
     Bullet,
-    BulletVariations,
     EducationModule,
     ExperienceModule,
     Job,
@@ -17,8 +16,6 @@ from tycho.models import (
     Profile,
     Skill,
     SkillsData,
-    Summary,
-    SummaryVariations,
     TailoredBullet,
     TailoredEntry,
     TailoredProfile,
@@ -93,21 +90,19 @@ class TestJob:
 
 class TestBullet:
     def test_minimal_bullet(self):
-        b = Bullet(id="b1", text="Did something.")
+        b = Bullet(text="Did something.")
         assert b.text_es == ""
         assert b.tags == []
         assert b.priority == 1
-        assert b.variations.ml_focus is None
 
-    def test_bullet_with_variations(self):
+    def test_bullet_with_tags(self):
         b = Bullet(
-            id="b1",
             text="Did something.",
-            variations=BulletVariations(ml_focus="ML version", backend_focus="Backend version"),
+            tags=["python", "ml"],
+            priority=2,
         )
-        assert b.variations.ml_focus == "ML version"
-        assert b.variations.backend_focus == "Backend version"
-        assert b.variations.data_focus is None
+        assert b.tags == ["python", "ml"]
+        assert b.priority == 2
 
 
 class TestExperienceModule:
@@ -177,7 +172,7 @@ class TestTailoredProfile:
             title="Dev",
             organization="Corp",
             dates="2024",
-            bullets=[TailoredBullet(id="b1", text="Did stuff", relevance_score=0.8)],
+            bullets=[TailoredBullet(text="Did stuff", relevance_score=0.8)],
         )
         assert len(entry.bullets) == 1
         assert entry.bullets[0].relevance_score == 0.8

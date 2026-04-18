@@ -176,14 +176,7 @@ def _llm_rerank_bullets(
 
 def _select_summary(profile: Profile, focus: str | None, language: str) -> str:
     """Select the best summary variation."""
-    summary = profile.personal.summary
-
-    if focus:
-        variation = getattr(summary.variations, focus, None)
-        if variation:
-            return variation
-
-    return summary.default
+    return profile.personal.summary
 
 
 def _select_skills(profile: Profile, job_keywords: set[str]) -> list[str]:
@@ -218,12 +211,6 @@ def _get_bullet_text(bullet: Bullet, focus: str | None, language: str) -> str:
     if language == "es" and bullet.text_es:
         return bullet.text_es
 
-    # Try focus variation
-    if focus:
-        variation = getattr(bullet.variations, focus, None)
-        if variation:
-            return variation
-
     return bullet.text
 
 
@@ -244,7 +231,6 @@ def _tailor_experience(
 
     tailored_bullets = [
         TailoredBullet(
-            id=b.id,
             text=_get_bullet_text(b, focus, language),
             relevance_score=score,
         )
@@ -284,7 +270,6 @@ def _tailor_education(
 
     tailored_bullets = [
         TailoredBullet(
-            id=b.id,
             text=_get_bullet_text(b, focus, language),
             relevance_score=score,
         )
@@ -324,7 +309,6 @@ def _tailor_other(
 
     tailored_bullets = [
         TailoredBullet(
-            id=b.id,
             text=_get_bullet_text(b, focus, language),
             relevance_score=score,
         )

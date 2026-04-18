@@ -1,6 +1,7 @@
 """Load and assemble multi-file YAML profile into Pydantic models."""
 
 import re
+import unicodedata
 from pathlib import Path
 
 import yaml
@@ -49,7 +50,9 @@ def _load_yaml(path: Path) -> dict:
 
 
 def _slugify(value: str) -> str:
-    """Lowercase, spaces to underscores, strip non-alphanumeric except underscores."""
+    """Lowercase, strip Unicode accents, spaces to underscores, keep ASCII alphanumeric."""
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(c for c in value if unicodedata.category(c) != "Mn")
     value = value.lower().replace(" ", "_")
     value = re.sub(r"[^\w]", "", value)
     # Collapse multiple underscores that may result from stripping
@@ -99,15 +102,17 @@ def _load_modules(directory: Path, model_class: type) -> list:
             # ExperienceModule/OtherModule use company+title; EducationModule uses institution+degree
             part1 = data.get("company") or data.get("organization") or data.get("institution", "")
             part2 = data.get("title") or data.get("degree", "")
-            data["id"] = _slugify(f"{part1}_{part2}")
+            derived = _slugify(f"{part1}_{part2}")
+            if not derived:
+                derived = yaml_file.stem  # fall back to the YAML filename
+            data["id"] = derived
 
         # Parse bullets — ignore legacy 'id' and 'variations' fields
         bullets_data = data.get("bullets", [])
         bullets = []
         for b in bullets_data:
-            b.pop("id", None)
-            b.pop("variations", None)
-            bullet = Bullet(**b)
+            clean = {k: v for k, v in b.items() if k not in ("id", "variations")}
+            bullet = Bullet(**clean)
             bullets.append(bullet)
         data["bullets"] = bullets
 
