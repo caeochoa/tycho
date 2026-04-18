@@ -45,3 +45,4 @@ output/
 # Env files
 .env
 .env.local
+.worktrees/
