@@ -42,26 +42,17 @@ class Job(BaseModel):
 
 # --- Profile Models ---
 
-class BulletVariations(BaseModel):
-    """Optional bullet text variations keyed by focus area."""
-    ml_focus: str | None = None
-    backend_focus: str | None = None
-    data_focus: str | None = None
-
-
 class Bullet(BaseModel):
     """A single bullet point within a profile module."""
-    id: str
     text: str
     text_es: str = ""
     tags: list[str] = Field(default_factory=list)
     priority: int = 1
-    variations: BulletVariations = BulletVariations()
 
 
 class ExperienceModule(BaseModel):
     """A work experience entry."""
-    id: str
+    id: str = ""
     type: str = "experience"
     company: str
     title: str
@@ -80,7 +71,7 @@ class ExperienceModule(BaseModel):
 
 class EducationModule(BaseModel):
     """An education entry."""
-    id: str
+    id: str = ""
     type: str = "education"
     institution: str
     institution_es: str | None = None
@@ -99,7 +90,7 @@ class EducationModule(BaseModel):
 
 class OtherModule(BaseModel):
     """A non-work, non-education entry (hackathon, leadership, etc.)."""
-    id: str
+    id: str = ""
     type: str = "other"
     organization: str
     title: str
@@ -128,19 +119,6 @@ class Language(BaseModel):
     level_es: str = ""
 
 
-class SummaryVariations(BaseModel):
-    """Summary text variations keyed by focus area."""
-    ml_focus: str | None = None
-    backend_focus: str | None = None
-    data_focus: str | None = None
-
-
-class Summary(BaseModel):
-    """Professional summary with variations."""
-    default: str = ""
-    variations: SummaryVariations = SummaryVariations()
-
-
 class PersonalInfo(BaseModel):
     """Personal identity and contact info."""
     name: str
@@ -149,9 +127,10 @@ class PersonalInfo(BaseModel):
     phone_uk: str = ""
     phone_es: str = ""
     linkedin: str = ""
+    photo_path: str = ""
     titles: list[str] = Field(default_factory=list)
     titles_es: list[str] = Field(default_factory=list)
-    summary: Summary = Summary()
+    summary: str = ""
     hobbies: list[str] = Field(default_factory=list)
     hobbies_es: list[str] = Field(default_factory=list)
 
@@ -175,7 +154,6 @@ class Profile(BaseModel):
 
 class TailoredBullet(BaseModel):
     """A bullet selected/tailored for a specific job."""
-    id: str
     text: str
     relevance_score: float = 0.0
 
