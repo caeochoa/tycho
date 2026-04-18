@@ -86,12 +86,13 @@ def load_template(
     cli_params: dict,
     templates_dir: Path,
     language: str = "en",
-) -> tuple[str, list[Path]]:
-    """Load a template by name and return (template_string, cls_files).
+) -> tuple[str, list[Path], "TemplateMetadata | None"]:
+    """Load a template by name and return (template_string, cls_files, metadata).
 
     Merges params: template defaults → config_params → cli_params.
     For legacy templates, selects the _es variant when language == "es".
-    Returns the raw Jinja2 template string (not yet rendered).
+    Returns the raw Jinja2 template string (not yet rendered) plus the metadata
+    object so callers avoid a second discover_templates() scan.
     """
     templates = discover_templates(templates_dir)
 
@@ -105,7 +106,7 @@ def load_template(
         # New format: single cv.tex.j2 handles language internally
         template_string = meta.template_file.read_text(encoding="utf-8")
         cls_files = list(meta.folder.glob("*.cls"))
-        return template_string, cls_files
+        return template_string, cls_files, meta
     else:
         # Legacy format: select _es variant if available
         if language == "es":
@@ -114,7 +115,7 @@ def load_template(
         else:
             template_file = meta.template_file
         template_string = template_file.read_text(encoding="utf-8")
-        return template_string, []
+        return template_string, [], meta
 
 
 def _latex_escape(text: str) -> str:
@@ -165,7 +166,7 @@ def render_latex(
     _config_params = config_params or {}
     _cli_params = cli_params or {}
 
-    template_string, _cls_files = load_template(
+    template_string, _cls_files, meta = load_template(
         name=template,
         config_params=_config_params,
         cli_params=_cli_params,
@@ -174,7 +175,6 @@ def render_latex(
     )
 
     # Build merged params for rendering context
-    meta = discover_templates(template_dir).get(template)
     merged_params: dict[str, Any] = {}
     if meta and not meta.is_legacy:
         # Start with template defaults
@@ -218,7 +218,7 @@ def build_pdf(
     _cli_params = cli_params or {}
 
     # Load template and collect .cls files
-    template_string, cls_files = load_template(
+    template_string, cls_files, meta = load_template(
         name=template,
         config_params=_config_params,
         cli_params=_cli_params,
@@ -227,7 +227,6 @@ def build_pdf(
     )
 
     # Build merged params for rendering context
-    meta = discover_templates(template_dir).get(template)
     merged_params: dict[str, Any] = {}
     if meta and not meta.is_legacy:
         for pname, pdef in meta.params.items():
@@ -268,8 +267,8 @@ def build_pdf(
                 return output_path
 
     raise RuntimeError(
-        f"PDF compilation failed. Check that pdflatex or latexmk is installed. "
-        f"LaTeX source saved for debugging."
+        "PDF compilation failed. Check that pdflatex or latexmk is installed. "
+        "Use --format tex to save the LaTeX source for debugging."
     )
 
 

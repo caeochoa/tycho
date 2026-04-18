@@ -1,10 +1,11 @@
 """Interactive builder for experience/education/other profile entries."""
 
-import json
 from pathlib import Path
+from typing import Optional
 
 import yaml
 import typer
+from pydantic import BaseModel
 
 from tycho.cv.profile_loader import _slugify
 
@@ -72,70 +73,53 @@ def wizard(profile_dir: Path, entry_type: str = "experience") -> dict:
     return entry
 
 
+class _DraftBullet(BaseModel):
+    text: str
+    tags: list[str] = []
+
+
+class _DraftedEntry(BaseModel):
+    type: str = "experience"
+    company: Optional[str] = None
+    institution: Optional[str] = None
+    organization: Optional[str] = None
+    title: Optional[str] = None
+    degree: Optional[str] = None
+    dates: str = ""
+    location: Optional[str] = None
+    tags: list[str] = []
+    priority: int = 1
+    bullets: list[_DraftBullet] = []
+
+
 def draft_from_description(description: str, existing_tags: list[str], llm_client) -> dict:
     """Use the LLM to draft an experience entry from a free-text description.
 
     Returns a dict in the same format as wizard().
-    Raises ValueError if LLM returns invalid JSON.
+    Raises ValueError if the LLM call fails or returns an unusable result.
     """
     prompt = f"""You are helping create a CV entry from a description.
 
 Existing tag vocabulary (use these where relevant): {', '.join(existing_tags[:30])}
 
 Draft a structured CV entry from the following description. Return a JSON object with these fields:
-- company (or institution/organization as appropriate)
-- title (or degree)
+- type: "experience", "education", or "other"
+- company (for experience), institution (for education), or organization (for other)
+- title (for experience/other) or degree (for education)
 - dates (e.g. "2023 - 2024")
-- location (optional, string or null)
+- location (optional string, omit if unknown)
 - tags (list of relevant strings from the vocabulary above, or new ones if needed)
-- priority (1, 2, or 3)
+- priority (1, 2, or 3 — 1 is most important)
 - bullets: list of objects with "text" (string) and "tags" (list of strings)
 
 Description:
 {description}"""
 
-    response = llm_client.invoke(prompt)
+    result = llm_client.invoke_structured(prompt, _DraftedEntry)
 
-    # Extract JSON from response (may be wrapped in markdown code fences)
-    raw = response.strip()
-    if "```" in raw:
-        # Strip markdown code fences
-        lines = raw.splitlines()
-        json_lines = []
-        inside = False
-        for line in lines:
-            if line.startswith("```"):
-                inside = not inside
-                continue
-            if inside:
-                json_lines.append(line)
-        raw = "\n".join(json_lines).strip()
-
-    try:
-        data = json.loads(raw)
-    except (json.JSONDecodeError, ValueError):
-        raise ValueError("LLM returned invalid JSON")
-
-    # Ensure type field is present (default experience)
-    if "type" not in data:
-        data["type"] = "experience"
-
-    # Ensure bullets is a list of dicts with text + tags
-    bullets = data.get("bullets", [])
-    normalized_bullets = []
-    for b in bullets:
-        if isinstance(b, dict):
-            normalized_bullets.append({
-                "text": b.get("text", ""),
-                "tags": b.get("tags", []),
-            })
-        elif isinstance(b, str):
-            normalized_bullets.append({"text": b, "tags": []})
-    data["bullets"] = normalized_bullets
-
-    # Remove null location
-    if data.get("location") is None:
-        data.pop("location", None)
+    # Convert Pydantic model → plain dict, dropping None values
+    data = result.model_dump(exclude_none=True)
+    data["bullets"] = [b.model_dump() for b in result.bullets]
 
     return data
 
@@ -172,6 +156,12 @@ def save_entry(entry_dict: dict, profile_dir: Path) -> Path:
     target_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = target_dir / f"{slug}.yaml"
+    # Avoid silently overwriting an existing file
+    counter = 2
+    while output_path.exists():
+        output_path = target_dir / f"{slug}_{counter}.yaml"
+        counter += 1
+
     with open(output_path, "w") as f:
         yaml.dump(entry_dict, f, allow_unicode=True, sort_keys=False)
 

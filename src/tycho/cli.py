@@ -639,11 +639,22 @@ def config_cmd():
 def migrate_profile(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show changes without writing"),
 ):
-    """Clean up profile YAML files to the new simplified format."""
+    """Clean up profile YAML files to the new simplified format.
+
+    WARNING: Rewrites YAML files in place using PyYAML's round-trip, which does
+    NOT preserve inline comments. Back up your profile directory first if you have
+    hand-written comments you want to keep.
+    """
     import yaml
 
     config = _get_config()
     profile_dir = Path(config.profile_dir)
+
+    if not dry_run:
+        console.print(
+            "[yellow]Warning:[/yellow] YAML files will be rewritten. "
+            "Inline comments will be lost. Back up your profile directory first.\n"
+        )
 
     subdirs = ["experience", "education", "other"]
     files_to_process = []
@@ -683,7 +694,7 @@ def migrate_profile(
                 console.print()
             else:
                 with yaml_path.open("w", encoding="utf-8") as f:
-                    yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+                    yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
                 console.print(f"[green]✓[/green] Updated {yaml_path}")
         else:
             if not dry_run:
@@ -706,7 +717,7 @@ def migrate_profile(
                 else:
                     personal_data["summary"] = summary_dict["default"]
                     with personal_path.open("w", encoding="utf-8") as f:
-                        yaml.dump(personal_data, f, allow_unicode=True, default_flow_style=False)
+                        yaml.dump(personal_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
                     console.print(f"[green]✓[/green] Updated {personal_path}")
             else:
                 if not dry_run:
@@ -795,6 +806,12 @@ def add_experience(
                 entry_dict = _yaml.safe_load(f) or {}
         finally:
             os.unlink(tmp_path)
+
+        # Guard against empty or structurally invalid entry after editing
+        required_keys = ("company", "institution", "organization")
+        if not entry_dict or not any(k in entry_dict for k in required_keys):
+            console.print("[red]Entry is empty or missing required fields. Discarding.[/red]")
+            return
 
     # Save
     path = experience_builder.save_entry(entry_dict, profile_dir)
