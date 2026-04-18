@@ -118,7 +118,31 @@ Each bullet is scored by tag overlap with the job's extracted keywords + priorit
 
 ### Phase 2 — LLM rewriting (optional)
 
-After Phase 1 selects bullets, the LLM rewrites **all selected bullets** for each entry to match the job's language and emphasis. The prompt instructs it not to invent facts or metrics. If the LLM call fails, the unmodified Phase 1 bullet texts are used as fallback.
+After Phase 1 selects bullets, the LLM rewrites **all selected bullets** for each entry to match the job's language and emphasis. Uses `invoke_structured()` with a `RewrittenBullets(bullets: list[str])` output schema — no fragile text parsing. If the LLM call fails or returns the wrong bullet count, the unmodified Phase 1 bullet texts are used as fallback.
+
+Prompt structure (per entry):
+```
+You are tailoring a CV for a job application.
+
+Job: {job.title} at {job.company}
+Description excerpt: {job.description[:600]}
+
+Rewrite each bullet to better match this role's language and emphasis.
+
+Rules:
+- Do not invent facts, metrics, tools, or achievements not in the original
+- Preserve all quantitative claims exactly (e.g. "<20ms", "20+ projects")
+- Use vocabulary from the job description where it fits naturally
+- Keep bullets concise (1–2 lines max)
+- Return exactly {n} bullets in the same order
+
+Bullets:
+1. {bullet_1}
+2. {bullet_2}
+...
+```
+
+Summary tailoring uses the same approach with a `RewrittenSummary(summary: str)` schema.
 
 ```
 Before: "Led backend development of OKM, a no-code RAG platform for enterprises."
@@ -149,17 +173,22 @@ After:  "Architected and led backend of OKM, an enterprise RAG platform enabling
 
 ```
 profile/templates/
-├── awesome_cv/
-│   ├── template.yaml       # metadata + declared params
-│   ├── cv.tex.j2           # single file, handles en/es via Jinja2
-│   └── awesome-cv.cls      # LaTeX class bundled with template
+├── awesome_cv/              # new format: folder with template.yaml
+│   ├── template.yaml        # metadata + declared params
+│   ├── cv.tex.j2            # single file, handles en/es via Jinja2
+│   └── awesome-cv.cls       # LaTeX class bundled with template
 ├── sidebar/
 │   ├── template.yaml
 │   └── cv.tex.j2
-└── (any folder dropped here is auto-discovered)
+├── developer_cv.tex.j2      # legacy flat file — still works
+└── ats_resume.tex.j2        # legacy flat file — still works
 ```
 
-Old flat files (`ats_resume.tex.j2`, `developer_cv.tex.j2`, `*_es.tex.j2`) are removed. Language variants are handled inside a single template via Jinja2 conditionals — no more duplicated files.
+The loader supports two formats:
+- **New format**: subdirectory with `template.yaml` + `cv.tex.j2`. Supports declared params, bundled `.cls` files, single file for all languages.
+- **Legacy format**: flat `.tex.j2` file directly in `profile/templates/`. No declared params. Language selection uses the existing `_es` suffix convention (`ats_resume_es.tex.j2`). Auto-discovered and listed by `tycho templates` as `(legacy, no params)`.
+
+Old templates dropped into `profile/templates/` continue to work without any changes. The folder structure is only required when a template wants to declare configurable params or bundle a `.cls` file.
 
 ### `template.yaml` schema
 
@@ -204,12 +233,14 @@ tycho generate <id> -p accent_color=#e74c3c  # override a param inline
 
 ### Error on missing template
 
-If `config.yaml` references a removed template name (`ats_resume`, `developer_cv`), Tycho prints:
+If `config.yaml` references a template name that can't be found (neither as a subdirectory nor as a flat `.tex.j2` file), Tycho prints:
 
 ```
-Template 'ats_resume' not found. Available templates: awesome_cv, sidebar
+Template 'missing_name' not found. Available templates: awesome_cv, sidebar, developer_cv (legacy), ats_resume (legacy)
 Update output.template in config.yaml to continue.
 ```
+
+Existing `config.yaml` files referencing `ats_resume` or `developer_cv` continue to work as long as the flat `.tex.j2` files remain in `profile/templates/`.
 
 ### Files affected
 
