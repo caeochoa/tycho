@@ -139,6 +139,8 @@ def _latex_escape(text: str) -> str:
 
 def _make_jinja_env(template_string: str) -> tuple[Environment, str]:
     """Create a Jinja2 environment for LaTeX rendering from a template string."""
+    import os as _os
+
     env = Environment(
         loader=BaseLoader(),
         block_start_string="<%",
@@ -148,6 +150,7 @@ def _make_jinja_env(template_string: str) -> tuple[Environment, str]:
         comment_start_string="<#",
         comment_end_string="#>",
     )
+    env.filters["basename"] = lambda p: _os.path.basename(p) if p else ""
     return env, template_string
 
 

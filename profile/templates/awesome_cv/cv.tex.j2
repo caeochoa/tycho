@@ -1,0 +1,155 @@
+\documentclass{awesome-cv}
+
+%% ---------- Font selection ----------
+<% if params.font == "raleway" %>
+\usepackage[default]{raleway}
+\renewcommand*\familydefault{\sfdefault}
+<% elif params.font == "sourcesanspro" %>
+\usepackage[default]{sourcesanspro}
+\renewcommand*\familydefault{\sfdefault}
+<% else %>
+\usepackage{lmodern}
+<% endif %>
+
+%% ---------- Accent color ----------
+\definecolor{accentcolor}{HTML}{ {{- params.accent_color | replace('#', '') -}} }
+
+\begin{document}
+
+%% ========== HEADER ==========
+<% set display_name = p.personal.name_es if (language == "es" and p.personal.name_es) else p.personal.name %>
+<% set display_titles = p.personal.titles_es if (language == "es" and p.personal.titles_es) else p.personal.titles %>
+
+<% if params.show_photo and p.personal.photo_path %>
+\begin{minipage}[t]{0.58\textwidth}
+<% else %>
+\begin{minipage}[t]{0.65\textwidth}
+<% endif %>
+  \vspace{-\baselineskip}
+  {\fontsize{26}{28}\selectfont\textbf{ {{- display_name -}} }}
+
+  \vspace{4pt}
+  {\large\textcolor{accentcolor}{%
+  <% for t in display_titles %> {{- t -}} <% if not loop.last %> \textbf{|} <% endif %><% endfor %>%
+  }}
+\end{minipage}%
+<% if params.show_photo and p.personal.photo_path %>
+\begin{minipage}[t]{0.24\textwidth}
+  \vspace{-\baselineskip}
+  \begin{flushright}
+  <% if phone %>{{ phone }}\\<% endif %>
+  \href{mailto:{{ p.personal.email }}}{ {{- p.personal.email -}} }\\
+  <% if p.personal.linkedin %>\href{https://{{ p.personal.linkedin }}}{ {{- p.personal.linkedin -}} }<% endif %>
+  \end{flushright}
+\end{minipage}%
+\begin{minipage}[t]{0.18\textwidth}
+  \vspace{-\baselineskip}
+  \begin{flushright}
+  \begin{tikzpicture}
+    \clip (0,0) circle (1.0cm);
+    \node at (0,0) {\includegraphics[width=2.0cm]{ {{- p.personal.photo_path | basename -}} }};
+  \end{tikzpicture}
+  \end{flushright}
+\end{minipage}
+<% else %>
+\begin{minipage}[t]{0.35\textwidth}
+  \vspace{-\baselineskip}
+  \begin{flushright}
+  <% if phone %>{{ phone }}\\<% endif %>
+  \href{mailto:{{ p.personal.email }}}{ {{- p.personal.email -}} }\\
+  <% if p.personal.linkedin %>\href{https://{{ p.personal.linkedin }}}{ {{- p.personal.linkedin -}} }<% endif %>
+  \end{flushright}
+\end{minipage}
+<% endif %>
+
+\vspace{0.4cm}
+
+<% if p.summary %>
+%% ========== PROFILE / PERFIL ==========
+\cvsect{<% if language == "es" %>Perfil<% else %>Profile<% endif %>}
+
+{{ p.summary }}
+
+<% endif %>
+%% ========== SKILLS / HABILIDADES ==========
+\cvsect{<% if language == "es" %>Habilidades<% else %>Skills<% endif %>}
+
+<% for skill in p.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %>
+
+%% ========== WORK EXPERIENCE / EXPERIENCIA LABORAL ==========
+\cvsect{<% if language == "es" %>Experiencia Laboral<% else %>Work Experience<% endif %>}
+
+\begin{longtable}[l]{p{0.16\textwidth} p{0.84\textwidth}}
+<% for entry in p.experience %>
+\parbox[t]{0.16\textwidth}{\small {{- entry.dates -}} }%
+&\parbox[t]{0.84\textwidth}{%
+  \textbf{ {{- entry.title -}} } \hfill {\small\textcolor{accentcolor}{ {{- entry.organization -}} }}\\%
+  <% if entry.location %>{\small\textit{ {{- entry.location -}} }}\\<% endif %>
+  <%- if entry.bullets %>
+  \begin{itemize}
+  <% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+  <% endfor -%>
+  \end{itemize}
+  <%- endif %>
+  <% if entry.skills %>{\footnotesize<% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %>}<% endif %>
+  \vspace{2pt}%
+}\\
+<% endfor %>
+\end{longtable}
+
+%% ========== EDUCATION / EDUCACIÓN ==========
+\cvsect{<% if language == "es" %>Educaci\'{o}n<% else %>Education<% endif %>}
+
+\begin{longtable}[l]{p{0.16\textwidth} p{0.84\textwidth}}
+<% for entry in p.education %>
+\parbox[t]{0.16\textwidth}{\small {{- entry.dates -}} }%
+&\parbox[t]{0.84\textwidth}{%
+  \textbf{ {{- entry.title -}} } \hfill {\small\textcolor{accentcolor}{ {{- entry.organization -}} }}\\%
+  <% if entry.location %>{\small\textit{ {{- entry.location -}} }}\\<% endif %>
+  <% if entry.gpa %>{\small GPA: {{ entry.gpa }}}\\<% endif %>
+  <%- if entry.bullets %>
+  \begin{itemize}
+  <% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+  <% endfor -%>
+  \end{itemize}
+  <%- endif %>
+  <% if entry.skills %>{\footnotesize<% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %>}<% endif %>
+  \vspace{2pt}%
+}\\
+<% endfor %>
+\end{longtable}
+
+<% if p.other %>
+%% ========== OTHER EXPERIENCE / OTRAS EXPERIENCIAS ==========
+\cvsect{<% if language == "es" %>Otras Experiencias<% else %>Other Experience<% endif %>}
+
+\begin{longtable}[l]{p{0.16\textwidth} p{0.84\textwidth}}
+<% for entry in p.other %>
+\parbox[t]{0.16\textwidth}{\small {{- entry.dates -}} }%
+&\parbox[t]{0.84\textwidth}{%
+  \textbf{ {{- entry.title -}} } \hfill {\small\textcolor{accentcolor}{ {{- entry.organization -}} }}\\%
+  <% if entry.location %>{\small\textit{ {{- entry.location -}} }}\\<% endif %>
+  <%- if entry.bullets %>
+  \begin{itemize}
+  <% for bullet in entry.bullets %>
+    \item {{ bullet.text }}
+  <% endfor -%>
+  \end{itemize}
+  <%- endif %>
+  <% if entry.skills %>{\footnotesize<% for skill in entry.skills %>\texttt{ {{- skill -}} }<% if not loop.last %>\slashsep<% endif %><% endfor %>}<% endif %>
+  \vspace{2pt}%
+}\\
+<% endfor %>
+\end{longtable}
+<% endif %>
+
+<% if p.languages %>
+%% ========== LANGUAGES / IDIOMAS ==========
+\cvsect{<% if language == "es" %>Idiomas<% else %>Languages<% endif %>}
+
+<% for lang in p.languages %>\textbf{ {{- lang.language -}} } -- <% if language == "es" and lang.level_es %>{{ lang.level_es }}<% else %>{{ lang.level }}<% endif %><% if not loop.last %> \slashsep <% endif %><% endfor %>
+<% endif %>
+
+\end{document}

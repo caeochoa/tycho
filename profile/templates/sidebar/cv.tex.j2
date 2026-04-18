@@ -1,0 +1,186 @@
+\documentclass[10pt,a4paper]{article}
+
+%% ---------- Packages ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[top=0cm, bottom=0cm, left=0cm, right=0cm, nohead, nofoot]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage[skins,breakable]{tcolorbox}
+\usepackage{enumitem}
+\usepackage{calc}
+
+%% ---------- ATS essentials ----------
+\input{glyphtounicode}
+\pdfgentounicode=1
+
+%% ---------- Layout ----------
+\pagestyle{empty}
+\setlength{\parindent}{0mm}
+
+%% ---------- Colors ----------
+\definecolor{sidebarcolor}{HTML}{ {{- params.sidebar_color | replace('#', '') -}} }
+\definecolor{accentcolor}{HTML}{ {{- params.accent_color | replace('#', '') -}} }
+\definecolor{mainbg}{HTML}{FFFFFF}
+\definecolor{sidebartext}{HTML}{FFFFFF}
+\definecolor{maintext}{HTML}{222222}
+\definecolor{lightgray}{HTML}{888888}
+
+%% ---------- Compact lists ----------
+\setlist[itemize]{leftmargin=4mm, noitemsep, topsep=1pt}
+\renewcommand\labelitemi{{\textcolor{accentcolor}{\tiny$\bullet$}}}
+
+%% ---------- Main section heading (right panel) ----------
+\newcommand{\mainsect}[1]{%
+  \vspace{5pt}%
+  \noindent\hspace{-3pt}{\color{accentcolor}\vrule width 3pt}\hspace{5pt}%
+  {\large\textbf{\MakeUppercase{#1}}}%
+  \par\vspace{3pt}%
+}
+
+%% ---------- Sidebar section heading ----------
+\newcommand{\sidesect}[1]{%
+  \vspace{6pt}%
+  {\textcolor{accentcolor}{\textbf{\MakeUppercase{#1}}}}%
+  \par{\color{accentcolor}\hrule height 0.5pt}\vspace{3pt}%
+}
+
+<% set display_name = p.personal.name_es if (language == "es" and p.personal.name_es) else p.personal.name %>
+<% set display_titles = p.personal.titles_es if (language == "es" and p.personal.titles_es) else p.personal.titles %>
+<% set sw = params.sidebar_width %>
+
+\begin{document}
+
+\begin{tcolorbox}[
+  enhanced,
+  sidebyside,
+  sidebyside align=top,
+  sidebyside gap=0mm,
+  lefthand width={ {{- sw -}} \paperwidth},
+  colback=sidebarcolor,
+  colbacklower=mainbg,
+  colframe=mainbg,
+  boxrule=0pt,
+  arc=0pt,
+  outer arc=0pt,
+  left=6mm, right=4mm, top=8mm, bottom=8mm,
+  lower separated=false,
+  breakable,
+]
+
+%% ===== SIDEBAR (LEFT PANEL) =====
+\color{sidebartext}
+
+<% if params.show_photo and p.personal.photo_path %>
+\begin{center}
+\begin{tikzpicture}
+  \clip (0,0) circle (1.2cm);
+  \node at (0,0) {\includegraphics[width=2.4cm]{ {{- p.personal.photo_path | basename -}} }};
+\end{tikzpicture}
+\end{center}
+\vspace{4pt}
+<% endif %>
+
+{\large\textbf{ {{- display_name -}} }}
+
+\vspace{2pt}
+{\small\textcolor{accentcolor}{ {{- display_titles | join(' | ') -}} }}
+
+\vspace{6pt}
+
+\sidesect{<% if language == "es" %>Contacto<% else %>Contact<% endif %>}
+
+{\small
+<% if phone %>{{ phone }}\\<% endif %>
+\href{mailto:{{ p.personal.email }}}{ {{- p.personal.email -}} }\\
+<% if p.personal.linkedin %>\href{https://{{ p.personal.linkedin }}}{ {{- p.personal.linkedin -}} }<% endif %>
+}
+
+<% if p.skills %>
+\sidesect{<% if language == "es" %>Habilidades<% else %>Skills<% endif %>}
+
+{\small
+<% for skill in p.skills %>
+{{ skill }}\\
+<% endfor %>
+}
+<% endif %>
+
+<% if p.languages %>
+\sidesect{<% if language == "es" %>Idiomas<% else %>Languages<% endif %>}
+
+{\small
+<% for lang in p.languages %>
+\textbf{ {{- lang.language -}} } -- <% if language == "es" and lang.level_es %>{{ lang.level_es }}<% else %>{{ lang.level }}<% endif %>\\
+<% endfor %>
+}
+<% endif %>
+
+\tcblower
+%% ===== MAIN CONTENT (RIGHT PANEL) =====
+\color{maintext}
+\hspace{4mm}\begin{minipage}[t]{\linewidth - 8mm}
+
+<% if p.summary %>
+\mainsect{<% if language == "es" %>Perfil<% else %>Profile<% endif %>}
+
+{\small {{ p.summary }}}
+
+<% endif %>
+\mainsect{<% if language == "es" %>Experiencia Laboral<% else %>Work Experience<% endif %>}
+
+<% for entry in p.experience %>
+\noindent\textbf{ {{- entry.title -}} }\hfill{\small\textcolor{lightgray}{ {{- entry.dates -}} }}\\
+{\small\textcolor{accentcolor}{ {{- entry.organization -}} }<% if entry.location %> \textbf{--} \textit{ {{- entry.location -}} }<% endif %>}
+<%- if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+  \item {\small {{ bullet.text }}}
+<% endfor -%>
+\end{itemize}
+<%- endif %>
+<% if entry.skills %>{\footnotesize\textcolor{lightgray}{ {{- entry.skills | join(' / ') -}} }}<% endif %>
+\vspace{4pt}
+<% endfor %>
+
+\mainsect{<% if language == "es" %>Educaci\'{o}n<% else %>Education<% endif %>}
+
+<% for entry in p.education %>
+\noindent\textbf{ {{- entry.title -}} }\hfill{\small\textcolor{lightgray}{ {{- entry.dates -}} }}\\
+{\small\textcolor{accentcolor}{ {{- entry.organization -}} }<% if entry.location %> \textbf{--} \textit{ {{- entry.location -}} }<% endif %>}
+<% if entry.gpa %>\\{\small GPA: {{ entry.gpa }}}<% endif %>
+<%- if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+  \item {\small {{ bullet.text }}}
+<% endfor -%>
+\end{itemize}
+<%- endif %>
+\vspace{4pt}
+<% endfor %>
+
+<% if p.other %>
+\mainsect{<% if language == "es" %>Otras Experiencias<% else %>Other Experience<% endif %>}
+
+<% for entry in p.other %>
+\noindent\textbf{ {{- entry.title -}} }\hfill{\small\textcolor{lightgray}{ {{- entry.dates -}} }}\\
+{\small\textcolor{accentcolor}{ {{- entry.organization -}} }<% if entry.location %> \textbf{--} \textit{ {{- entry.location -}} }<% endif %>}
+<%- if entry.bullets %>
+\begin{itemize}
+<% for bullet in entry.bullets %>
+  \item {\small {{ bullet.text }}}
+<% endfor -%>
+\end{itemize}
+<%- endif %>
+\vspace{4pt}
+<% endfor %>
+<% endif %>
+
+\end{minipage}
+
+\end{tcolorbox}
+
+\end{document}
