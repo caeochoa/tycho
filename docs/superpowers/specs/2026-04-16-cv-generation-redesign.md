@@ -267,7 +267,25 @@ Existing `config.yaml` files referencing `ats_resume` or `developer_cv` continue
 - Sidebar background: configurable dark colour, default `#1a1a2e`
 - Accent for section rules and company names: configurable, default `#a0c4ff`
 - Less ATS-friendly, best for roles where visual presentation matters
-- Params: `sidebar_color`, `accent_color`, `sidebar_width`
+- Params: `sidebar_color`, `accent_color`, `sidebar_width`, `show_photo`
+
+### Profile photo support
+
+Both templates support an optional circular-cropped profile photo (common in Spain and other European markets) via a `show_photo` boolean param. When `true`:
+- The photo is rendered using `tikzpicture` + `\clip` in the header area (same technique as the user's existing `developercv` template)
+- Photo path is read from `personal.yaml` → `photo_path` (relative to the project root, e.g. `profile/photo.jpg`)
+- The photo file is copied to the temp compile directory alongside `.cls` files before pdflatex runs
+- Default is `false` — no photo, no extra LaTeX packages required
+
+`personal.yaml` addition:
+```yaml
+photo_path: "profile/photo.jpg"   # optional, used when show_photo: true
+```
+
+`PersonalInfo` model addition:
+```python
+photo_path: str = ""
+```
 
 ---
 
