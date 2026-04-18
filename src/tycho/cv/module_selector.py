@@ -125,7 +125,7 @@ def select_modules(
     job_keywords = set(extract_keywords(job.description, profile, llm_client=llm_client))
 
     # Select summary variation
-    summary = _select_summary(profile, language)
+    summary = _select_summary(profile)
 
     # Optionally rewrite summary with LLM
     if llm_client is not None and getattr(llm_client, "available", False):
@@ -226,7 +226,7 @@ def select_modules(
 # ---------------------------------------------------------------------------
 
 
-def _select_summary(profile: Profile, language: str) -> str:
+def _select_summary(profile: Profile) -> str:
     """Select the best summary variation."""
     return profile.personal.summary
 

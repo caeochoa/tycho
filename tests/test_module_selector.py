@@ -19,12 +19,12 @@ from tycho.cv.module_selector import RewrittenBullets, RewrittenSummary
 
 class TestSelectSummary:
     def test_returns_summary_string(self, sample_profile):
-        summary = _select_summary(sample_profile, "en")
+        summary = _select_summary(sample_profile)
         assert isinstance(summary, str)
         assert summary != ""
 
     def test_returns_plain_summary(self, sample_profile):
-        summary = _select_summary(sample_profile, "en")
+        summary = _select_summary(sample_profile)
         assert summary == sample_profile.personal.summary
 
 
@@ -214,9 +214,8 @@ class TestSelectModulesWithLLM:
             if schema is RewrittenSummary:
                 return rewritten_summary
             elif schema is RewrittenBullets:
-                # Count bullets in prompt to return correct number
-                count = prompt.count("\n1. ") + prompt.count("\n2. ") + prompt.count("\n3. ")
-                if "2." in prompt:
+                # Return correct number of bullets based on prompt content
+                if "\n2. " in prompt:
                     return rewritten_bullets_double
                 return rewritten_bullets_single
             # LLMKeywordResult for keyword extraction
