@@ -15,15 +15,15 @@ class SearchConfig(BaseModel):
 
 
 class ScoringWeights(BaseModel):
-    keyword_match: float = 0.35
-    title_match: float = 0.25
-    skills_overlap: float = 0.25
+    keyword_match: float = 0.25
+    title_match: float = 0.20
+    skills_overlap: float = 0.40
     location_match: float = 0.15
 
 
 class ScoringThresholds(BaseModel):
     high_interest: float = 0.75
-    low_interest: float = 0.30
+    low_interest: float = 0.25
 
 
 class LocationConfig(BaseModel):
@@ -37,6 +37,7 @@ class ScoringConfig(BaseModel):
     weights: ScoringWeights = ScoringWeights()
     thresholds: ScoringThresholds = ScoringThresholds()
     locations: LocationConfig = LocationConfig()
+    min_keywords_confidence: int = 8  # Keyword count required for full keyword_match confidence
 
 
 class LLMConfig(BaseModel):

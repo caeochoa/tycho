@@ -44,7 +44,7 @@ async def _show_jobs(update: Update, context: ContextTypes.DEFAULT_TYPE,
     else:
         lines = [f"<b>Jobs</b> (page {page}/{total_pages}, {total} total)\n"]
         for i, job in enumerate(jobs, start=1):
-            lines.append(format_job_line(job, i))
+            lines.append(format_job_line(job, i, config.scoring.thresholds))
         text = "\n".join(lines)
 
     keyboard = job_list_keyboard(jobs, page, total, page_size, status_filter, score_filter)
@@ -92,7 +92,8 @@ async def filter_score_callback(update: Update, context: ContextTypes.DEFAULT_TY
     page = int(parts[1]) if len(parts) > 1 and parts[1] else 1
     status_filter = parts[2] if len(parts) > 2 else ""
     await query.answer()
+    config = context.bot_data["config"]
     await query.edit_message_text(
         "Filter by minimum score:",
-        reply_markup=score_filter_keyboard(page, status_filter),
+        reply_markup=score_filter_keyboard(page, status_filter, config.scoring.thresholds.high_interest),
     )

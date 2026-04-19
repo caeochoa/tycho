@@ -110,6 +110,8 @@ def jobs(
     """List collected jobs."""
     from tycho.db import get_jobs
 
+    config = _get_config()
+    thresholds = config.scoring.thresholds
     session = _get_db()
     job_list = get_jobs(session, status=status, min_score=min_score, limit=limit)
     session.close()
@@ -131,9 +133,9 @@ def jobs(
         score_str = f"{job.score:.2f}" if job.score is not None else "—"
         score_style = ""
         if job.score is not None:
-            if job.score >= 0.75:
+            if job.score >= thresholds.high_interest:
                 score_style = "bold green"
-            elif job.score >= 0.50:
+            elif job.score >= thresholds.low_interest:
                 score_style = "yellow"
             else:
                 score_style = "dim"
@@ -432,6 +434,8 @@ def dashboard():
     """Interactive job browsing dashboard (Rich)."""
     from tycho.db import get_jobs
 
+    config = _get_config()
+    thresholds = config.scoring.thresholds
     session = _get_db()
     all_jobs = get_jobs(session, limit=200)
     session.close()
@@ -476,7 +480,7 @@ def dashboard():
         table.add_column("Status", width=10)
 
         for job in top:
-            score_style = "bold green" if job.score >= 0.75 else ("yellow" if job.score >= 0.5 else "dim")
+            score_style = "bold green" if job.score >= thresholds.high_interest else ("yellow" if job.score >= thresholds.low_interest else "dim")
             table.add_row(
                 job.id[:8],
                 Text(f"{job.score:.2f}", style=score_style),

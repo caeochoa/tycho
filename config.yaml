@@ -6,13 +6,14 @@ search:
 
 scoring:
   weights:
-    keyword_match: 0.35
-    title_match: 0.25
-    skills_overlap: 0.25
+    keyword_match: 0.30
+    title_match: 0.20
+    skills_overlap: 0.35
     location_match: 0.15
+  min_keywords_confidence: 6
   thresholds:
     high_interest: 0.75
-    low_interest: 0.30
+    low_interest: 0.25
   locations:
     preferred:
       - madrid
@@ -53,7 +54,7 @@ db_path: "tycho.db"
 output_dir: "output"
 
 telegram:
-  enabled: true
+  enabled: false
   token: ""
   allowed_users:
     - 4042272

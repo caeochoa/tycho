@@ -18,20 +18,20 @@ _CHECK = "\u2705"
 _CROSS = "\u274c"
 
 
-def _score_emoji(score: float | None) -> str:
+def _score_emoji(score: float | None, thresholds) -> str:
     if score is None:
         return _WHITE_CIRCLE
-    if score >= 0.75:
+    if score >= thresholds.high_interest:
         return _GREEN_CIRCLE
-    if score >= 0.50:
+    if score >= thresholds.low_interest:
         return _YELLOW_CIRCLE
     return _RED_CIRCLE
 
 
-def format_job_line(job, index: int) -> str:
+def format_job_line(job, index: int, thresholds) -> str:
     """One-line summary: index. emoji score — title @ company (location)."""
     score_str = f"{job.score:.2f}" if job.score is not None else "-.--"
-    emoji = _score_emoji(job.score)
+    emoji = _score_emoji(job.score, thresholds)
     location = f" ({escape(job.location)})" if job.location else ""
     return (
         f"{index}. {emoji} {score_str} \u2014 "

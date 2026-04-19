@@ -83,10 +83,11 @@ def status_filter_keyboard(page: int, score_filter: str) -> InlineKeyboardMarkup
     return InlineKeyboardMarkup(rows)
 
 
-def score_filter_keyboard(page: int, status_filter: str) -> InlineKeyboardMarkup:
+def score_filter_keyboard(page: int, status_filter: str, high_interest: float = 0.75) -> InlineKeyboardMarkup:
     """Filter menu for minimum score."""
-    thresholds = ["", "0.3", "0.5", "0.75"]
-    labels = ["All", "\u2265 0.30", "\u2265 0.50", "\u2265 0.75"]
+    hi = f"{high_interest:.2f}"
+    thresholds = ["", "0.3", "0.5", hi]
+    labels = ["All", "\u2265 0.30", "\u2265 0.50", f"\u2265 {hi}"]
     rows = []
     row = []
     for val, label in zip(thresholds, labels):

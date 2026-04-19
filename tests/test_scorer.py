@@ -14,18 +14,25 @@ from tycho.matcher.scorer import (
 
 
 class TestKeywordMatchScore:
-    def test_full_match(self, sample_profile):
-        keywords = ["python", "pytorch", "sql"]
+    def test_full_match_full_confidence(self, sample_profile):
+        # 8 keywords → confidence = 1.0, all match → score = 1.0
+        keywords = ["python", "pytorch", "sql", "langchain", "onnx", "cuda", "react", "docker"]
         score = _keyword_match_score(keywords, sample_profile)
         assert score == pytest.approx(1.0)
 
+    def test_full_match_low_confidence(self, sample_profile):
+        # 3/3 keywords match but only 3 extracted → confidence = 3/8 = 0.375
+        keywords = ["python", "pytorch", "sql"]
+        score = _keyword_match_score(keywords, sample_profile)
+        assert score == pytest.approx(0.375)
+
     def test_no_match(self, sample_profile):
-        keywords = ["ruby", "elixir", "haskell"]
+        keywords = ["ruby", "elixir", "haskell", "erlang", "clojure", "ocaml", "prolog", "cobol"]
         score = _keyword_match_score(keywords, sample_profile)
         assert score == 0.0
 
     def test_partial_match(self, sample_profile):
-        keywords = ["python", "ruby"]
+        keywords = ["python", "ruby", "erlang", "clojure", "ocaml", "prolog", "cobol", "haskell"]
         score = _keyword_match_score(keywords, sample_profile)
         assert 0.0 < score < 1.0
 
@@ -34,10 +41,25 @@ class TestKeywordMatchScore:
         assert score == 0.0
 
     def test_matches_skill_tags(self, sample_profile):
-        # "ml" is a tag on PyTorch, not a skill name
-        keywords = ["ml"]
+        # "ml" is a tag on PyTorch, not a skill name — use 8 keywords for full confidence
+        keywords = ["ml", "ai", "cv", "llm", "rag", "optimization", "cloud", "devops"]
         score = _keyword_match_score(keywords, sample_profile)
         assert score > 0.0
+
+    def test_confidence_scales_linearly(self, sample_profile):
+        # With 4 matching keywords out of 8 threshold, confidence = 0.5, match ratio = 1.0
+        # → final score = 0.5
+        keywords = ["python", "pytorch", "sql", "langchain"]
+        score = _keyword_match_score(keywords, sample_profile, min_confidence_count=8)
+        assert score == pytest.approx(0.5)
+
+    def test_confidence_capped_at_one(self, sample_profile):
+        # More keywords than threshold → confidence stays at 1.0
+        keywords = ["python", "pytorch", "sql", "langchain", "onnx", "cuda", "react", "docker",
+                    "ruby", "elixir"]
+        score = _keyword_match_score(keywords, sample_profile, min_confidence_count=8)
+        # 8 of 10 match (ruby, elixir don't) → 0.8 * 1.0 = 0.8
+        assert score == pytest.approx(0.8)
 
 
 class TestTitleMatchScore:
@@ -65,26 +87,44 @@ class TestTitleMatchScore:
 
 class TestSkillsOverlapScore:
     def test_full_overlap(self, sample_profile):
+        # All 8 profile skills present → recall = 8/8 = 1.0
         keywords = ["python", "pytorch", "sql", "langchain", "onnx", "cuda", "react", "docker"]
         score = _skills_overlap_score(keywords, sample_profile)
-        assert score > 0.5
+        assert score == pytest.approx(1.0)
+
+    def test_partial_overlap(self, sample_profile):
+        # 4 of 8 profile skills present → recall = 4/8 = 0.5
+        keywords = ["python", "pytorch", "sql", "langchain", "ruby", "elixir", "haskell", "cobol"]
+        score = _skills_overlap_score(keywords, sample_profile)
+        assert score == pytest.approx(0.5)
 
     def test_no_overlap(self, sample_profile):
         keywords = ["ruby", "elixir"]
         score = _skills_overlap_score(keywords, sample_profile)
         assert score == 0.0
 
+    def test_not_penalised_by_extra_job_keywords(self, sample_profile):
+        # Job listing 4 matching + 20 irrelevant skills should score same as 4 matching alone
+        few = ["python", "pytorch", "sql", "langchain"]
+        many = few + ["cobol", "fortran", "perl", "pascal", "haskell",
+                      "erlang", "prolog", "assembly", "basic", "tcl",
+                      "ada", "lisp", "scheme", "forth", "sml",
+                      "ocaml", "idris", "agda", "lean", "coq"]
+        assert _skills_overlap_score(few, sample_profile) == pytest.approx(
+            _skills_overlap_score(many, sample_profile)
+        )
+
     def test_empty_keywords(self, sample_profile):
         score = _skills_overlap_score([], sample_profile)
         assert score == 0.0
 
-    def test_both_empty(self):
-        from tycho.models import Profile, PersonalInfo, SkillsData, Summary
+    def test_empty_profile(self):
+        from tycho.models import Profile, PersonalInfo, SkillsData
         empty_profile = Profile(
             personal=PersonalInfo(name="Test", email="t@t.com"),
             skills=SkillsData(),
         )
-        score = _skills_overlap_score([], empty_profile)
+        score = _skills_overlap_score(["python", "pytorch"], empty_profile)
         assert score == 0.0
 
 
@@ -156,6 +196,7 @@ class TestScoreJob:
         score, details = score_job(ml_job, sample_profile, scoring_config)
         assert score > 0.3
         assert "keyword_match" in details
+        assert "keyword_confidence" in details
         assert "title_match" in details
         assert "skills_overlap" in details
         assert "location_match" in details

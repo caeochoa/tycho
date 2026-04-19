@@ -16,7 +16,9 @@ def score_job(
     weights = config.weights
     job_keywords = extract_keywords(job.description, profile, llm_client=llm_client)
 
-    kw_score = _keyword_match_score(job_keywords, profile)
+    kw_score = _keyword_match_score(
+        job_keywords, profile, config.min_keywords_confidence
+    )
     title_score = _title_match_score(job.title, profile)
     skills_score = _skills_overlap_score(job_keywords, profile)
     loc_score = _location_match_score(job.location, config)
@@ -28,8 +30,10 @@ def score_job(
         + weights.location_match * loc_score
     )
 
+    keyword_confidence = min(1.0, len(job_keywords) / config.min_keywords_confidence) if job_keywords else 0.0
     details = {
         "keyword_match": round(kw_score, 3),
+        "keyword_confidence": round(keyword_confidence, 3),
         "title_match": round(title_score, 3),
         "skills_overlap": round(skills_score, 3),
         "location_match": round(loc_score, 3),
@@ -40,8 +44,15 @@ def score_job(
     return round(total, 3), details
 
 
-def _keyword_match_score(job_keywords: list[str], profile: Profile) -> float:
-    """Percentage of job keywords found in profile skills."""
+def _keyword_match_score(
+    job_keywords: list[str], profile: Profile, min_confidence_count: int = 8
+) -> float:
+    """Percentage of job keywords found in profile skills, scaled by extraction confidence.
+
+    Jobs where few keywords were extracted (e.g. because their tech stack is outside
+    the known keyword list) receive a confidence penalty so a 3/3 match on generic
+    terms doesn't outscore a 10/15 match on a rich, well-described role.
+    """
     if not job_keywords:
         return 0.0
 
@@ -51,45 +62,65 @@ def _keyword_match_score(job_keywords: list[str], profile: Profile) -> float:
         profile_skills.update(t.lower() for t in s.tags)
 
     matches = sum(1 for kw in job_keywords if kw in profile_skills)
-    return matches / len(job_keywords)
+    raw_score = matches / len(job_keywords)
+
+    # Scale by confidence: fewer extracted keywords → lower confidence in the ratio
+    confidence = min(1.0, len(job_keywords) / min_confidence_count)
+    return raw_score * confidence
 
 
 def _title_match_score(job_title: str, profile: Profile) -> float:
-    """Similarity between job title and profile titles/experience titles."""
+    """Profile-recall title match: fraction of *profile* title words found in the job title.
+
+    Using profile-recall (overlap / profile_title_words) rather than Jaccard
+    (overlap / union) means that a job title with extra seniority/context words
+    (e.g. "Senior ML/AI Engineer – Agents Team") is not penalised for containing
+    more words than the profile title ("AI Engineer"). A job that is missing
+    profile title words is still penalised proportionally.
+    """
     job_words = set(re.findall(r"\w+", job_title.lower()))
     if not job_words:
         return 0.0
 
-    # Check against profile titles
-    best_score = 0.0
+    # Ignore common filler words that inflate job titles without adding signal
+    STOPWORDS = {"senior", "junior", "lead", "staff", "principal", "associate",
+                 "mid", "manager", "head", "director", "remote", "hybrid", "contract"}
+
     reference_titles = list(profile.personal.titles)
     for exp in profile.experience:
         reference_titles.append(exp.title)
 
+    best_score = 0.0
     for title in reference_titles:
-        title_words = set(re.findall(r"\w+", title.lower()))
-        if not title_words:
+        profile_words = set(re.findall(r"\w+", title.lower())) - STOPWORDS
+        if not profile_words:
             continue
-        overlap = len(job_words & title_words)
-        union = len(job_words | title_words)
-        score = overlap / union if union else 0.0
+        overlap = len(job_words & profile_words)
+        score = overlap / len(profile_words)
         best_score = max(best_score, score)
 
     return best_score
 
 
 def _skills_overlap_score(job_keywords: list[str], profile: Profile) -> float:
-    """Jaccard similarity of job required skills vs profile skills."""
-    profile_skills = {s.name.lower() for s in profile.skills.technical}
-    job_skills = set(job_keywords)
+    """Profile recall: fraction of your *core* (priority-1) skills that the job requires.
 
-    if not job_skills and not profile_skills:
+    Using only priority-1 skills as the denominator keeps the baseline pool
+    small (~8 skills) so that matching 6 of them scores 0.75 rather than being
+    diluted by the full 29-skill profile list. Priority-2/3 skills can still
+    contribute to the numerator if the job mentions them.
+    """
+    core_skills = {s.name.lower() for s in profile.skills.technical if s.priority == 1}
+    if not core_skills:
+        # Fallback: use all skills if no priority-1 skills defined
+        core_skills = {s.name.lower() for s in profile.skills.technical}
+    if not core_skills:
         return 0.0
 
-    intersection = job_skills & profile_skills
-    union = job_skills | profile_skills
+    job_skills = set(job_keywords)
+    intersection = job_skills & core_skills
 
-    return len(intersection) / len(union) if union else 0.0
+    return len(intersection) / len(core_skills)
 
 
 def _location_match_score(job_location: str, config: ScoringConfig) -> float:
