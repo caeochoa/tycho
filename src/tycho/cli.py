@@ -650,11 +650,10 @@ def migrate_profile(
     config = _get_config()
     profile_dir = Path(config.profile_dir)
 
-    if not dry_run:
-        console.print(
-            "[yellow]Warning:[/yellow] YAML files will be rewritten. "
-            "Inline comments will be lost. Back up your profile directory first.\n"
-        )
+    console.print(
+        "[yellow]Warning:[/yellow] Running this command will rewrite YAML files. "
+        "Inline comments will be lost. Back up your profile directory first.\n"
+    )
 
     subdirs = ["experience", "education", "other"]
     files_to_process = []
@@ -748,6 +747,14 @@ def add_experience(
     config = _get_config()
     profile_dir = Path(config.profile_dir)
 
+    entry_type = typer.prompt(
+        "Entry type [experience/education/other]",
+        default="experience",
+    )
+    if entry_type not in ("experience", "education", "other"):
+        console.print(f"[yellow]Unknown type '{entry_type}', using 'experience'[/yellow]")
+        entry_type = "experience"
+
     entry_dict = None
 
     if from_description and not no_llm:
@@ -772,6 +779,7 @@ def add_experience(
 
             try:
                 entry_dict = experience_builder.draft_from_description(description, existing_tags, llm_client)
+                entry_dict["type"] = entry_type
                 console.print("[cyan]LLM drafted entry successfully.[/cyan]")
             except Exception as e:
                 console.print(f"[yellow]LLM draft failed ({e}), falling back to wizard.[/yellow]")
@@ -780,7 +788,7 @@ def add_experience(
             console.print("[yellow]LLM not available, falling back to wizard.[/yellow]")
 
     if entry_dict is None:
-        entry_dict = experience_builder.wizard(profile_dir)
+        entry_dict = experience_builder.wizard(profile_dir, entry_type=entry_type)
 
     # Show the generated YAML
     sep = "─" * 60

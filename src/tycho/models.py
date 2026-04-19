@@ -131,6 +131,7 @@ class PersonalInfo(BaseModel):
     titles: list[str] = Field(default_factory=list)
     titles_es: list[str] = Field(default_factory=list)
     summary: str = ""
+    summary_es: str = ""
     hobbies: list[str] = Field(default_factory=list)
     hobbies_es: list[str] = Field(default_factory=list)
 

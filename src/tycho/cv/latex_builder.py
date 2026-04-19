@@ -143,6 +143,25 @@ def _coerce_params(params: dict[str, Any], param_defs: dict[str, dict]) -> dict[
     return result
 
 
+def _build_merged_params(
+    meta: "TemplateMetadata | None",
+    config_params: dict[str, Any],
+    cli_params: dict[str, Any],
+    template_params: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge template defaults with config and CLI param overrides."""
+    merged: dict[str, Any] = {}
+    if meta and not meta.is_legacy:
+        for pname, pdef in meta.params.items():
+            if "default" in pdef:
+                merged[pname] = pdef["default"]
+        merged.update(_coerce_params(config_params, meta.params))
+        merged.update(_coerce_params(cli_params, meta.params))
+    elif template_params:
+        merged = dict(template_params)
+    return merged
+
+
 def _latex_escape(text: str) -> str:
     """Escape special LaTeX characters."""
     replacements = {
@@ -202,18 +221,7 @@ def render_latex(
         language=language,
     )
 
-    # Build merged params for rendering context
-    merged_params: dict[str, Any] = {}
-    if meta and not meta.is_legacy:
-        # Start with template defaults
-        for pname, pdef in meta.params.items():
-            if "default" in pdef:
-                merged_params[pname] = pdef["default"]
-        # Override with config params, then CLI params; coerce types against declarations
-        merged_params.update(_coerce_params(_config_params, meta.params))
-        merged_params.update(_coerce_params(_cli_params, meta.params))
-    elif template_params:
-        merged_params = dict(template_params)
+    merged_params = _build_merged_params(meta, _config_params, _cli_params, template_params)
 
     env, tpl_str = _make_jinja_env(template_string)
     tmpl = env.from_string(tpl_str)
@@ -254,16 +262,7 @@ def build_pdf(
         language=language,
     )
 
-    # Build merged params for rendering context
-    merged_params: dict[str, Any] = {}
-    if meta and not meta.is_legacy:
-        for pname, pdef in meta.params.items():
-            if "default" in pdef:
-                merged_params[pname] = pdef["default"]
-        merged_params.update(_coerce_params(_config_params, meta.params))
-        merged_params.update(_coerce_params(_cli_params, meta.params))
-    elif template_params:
-        merged_params = dict(template_params)
+    merged_params = _build_merged_params(meta, _config_params, _cli_params, template_params)
 
     env, tpl_str = _make_jinja_env(template_string)
     tmpl = env.from_string(tpl_str)

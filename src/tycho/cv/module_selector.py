@@ -85,10 +85,12 @@ def _llm_rewrite_summary(
     job_title: str,
     job_company: str,
     job_description: str,
+    language: str = "en",
 ) -> str:
     """Rewrite summary to match job. Falls back to original on any failure."""
     if not summary:
         return summary
+    lang_instruction = " Write the summary in Spanish." if language == "es" else ""
     prompt = f"""You are tailoring a CV for a job application.
 
 Job: {job_title} at {job_company}
@@ -100,7 +102,7 @@ Rewrite the following professional summary to better match this role.
 Rules:
 - Do not invent facts or experience not present in the original
 - Keep it concise (2-4 sentences max)
-- Use vocabulary from the job description where it fits naturally
+- Use vocabulary from the job description where it fits naturally{lang_instruction}
 
 Summary:
 {summary}
@@ -125,13 +127,13 @@ def select_modules(
     job_keywords = set(extract_keywords(job.description, profile, llm_client=llm_client))
 
     # Select summary variation
-    summary = _select_summary(profile)
+    summary = _select_summary(profile, language)
 
     # Optionally rewrite summary with LLM
     if llm_client is not None and getattr(llm_client, "available", False):
         try:
             summary = _llm_rewrite_summary(
-                llm_client, summary, job.title, job.company or "", job.description or ""
+                llm_client, summary, job.title, job.company or "", job.description or "", language
             )
         except Exception:
             logger.debug("LLM summary rewrite failed, using original", exc_info=True)
@@ -223,8 +225,10 @@ def select_modules(
 # ---------------------------------------------------------------------------
 
 
-def _select_summary(profile: Profile) -> str:
-    """Select the best summary variation."""
+def _select_summary(profile: Profile, language: str = "en") -> str:
+    """Select the best summary variation based on language."""
+    if language == "es" and profile.personal.summary_es:
+        return profile.personal.summary_es
     return profile.personal.summary
 
 
