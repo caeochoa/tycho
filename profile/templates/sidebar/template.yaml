@@ -1,0 +1,22 @@
+name: "Sidebar CV"
+description: "Dark sidebar with skills and contact panel, accent-colored section markers"
+ats_friendly: false
+languages: [en, es]
+
+params:
+  sidebar_color:
+    type: color
+    default: "#1a1a2e"
+    label: "Sidebar background color"
+  accent_color:
+    type: color
+    default: "#a0c4ff"
+    label: "Accent color for section markers and links"
+  sidebar_width:
+    type: float
+    default: 0.28
+    label: "Sidebar width as fraction of text width (e.g. 0.28)"
+  show_photo:
+    type: bool
+    default: false
+    label: "Show circular profile photo at top of sidebar"

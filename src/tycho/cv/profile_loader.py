@@ -1,5 +1,7 @@
 """Load and assemble multi-file YAML profile into Pydantic models."""
 
+import re
+import unicodedata
 from pathlib import Path
 
 import yaml
@@ -14,9 +16,6 @@ from tycho.models import (
     Profile,
     Skill,
     SkillsData,
-    Summary,
-    SummaryVariations,
-    BulletVariations,
 )
 
 
@@ -50,17 +49,29 @@ def _load_yaml(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
+def _slugify(value: str) -> str:
+    """Lowercase, strip Unicode accents, spaces to underscores, keep ASCII alphanumeric."""
+    value = unicodedata.normalize("NFD", value)
+    value = "".join(c for c in value if unicodedata.category(c) != "Mn")
+    value = value.lower().replace(" ", "_")
+    value = re.sub(r"[^\w]", "", value)
+    # Collapse multiple underscores that may result from stripping
+    value = re.sub(r"_+", "_", value).strip("_")
+    return value
+
+
 def _load_personal(path: Path) -> PersonalInfo:
     """Load personal.yaml into PersonalInfo."""
     data = _load_yaml(path)
 
-    summary_data = data.get("summary", {})
-    variations_data = summary_data.get("variations", {})
-    summary = Summary(
-        default=summary_data.get("default", ""),
-        variations=SummaryVariations(**variations_data),
-    )
-    data["summary"] = summary
+    summary_raw = data.get("summary", "")
+    if isinstance(summary_raw, dict):
+        # Old format: {default: "...", variations: {...}} — extract the default string
+        summary_str = summary_raw.get("default", "")
+    else:
+        # New format: plain string
+        summary_str = summary_raw or ""
+    data["summary"] = summary_str
 
     return PersonalInfo(**data)
 
@@ -86,12 +97,22 @@ def _load_modules(directory: Path, model_class: type) -> list:
         if data.get("enabled", True) is False:
             continue
 
-        # Parse bullets
+        # Auto-derive module id if absent or empty
+        if not data.get("id"):
+            # ExperienceModule/OtherModule use company+title; EducationModule uses institution+degree
+            part1 = data.get("company") or data.get("organization") or data.get("institution", "")
+            part2 = data.get("title") or data.get("degree", "")
+            derived = _slugify(f"{part1}_{part2}")
+            if not derived:
+                derived = yaml_file.stem  # fall back to the YAML filename
+            data["id"] = derived
+
+        # Parse bullets — ignore legacy 'id' and 'variations' fields
         bullets_data = data.get("bullets", [])
         bullets = []
         for b in bullets_data:
-            variations = b.pop("variations", {})
-            bullet = Bullet(**b, variations=BulletVariations(**variations))
+            clean = {k: v for k, v in b.items() if k not in ("id", "variations")}
+            bullet = Bullet(**clean)
             bullets.append(bullet)
         data["bullets"] = bullets
 

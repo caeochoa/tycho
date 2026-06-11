@@ -231,6 +231,42 @@ def show(
         console.print(f"\n[bold]Description:[/bold]\n{desc}")
 
 
+@app.command("templates")
+def templates_cmd():
+    """List available CV templates and their configurable parameters."""
+    from tycho.cv.latex_builder import discover_templates
+
+    config = _get_config()
+    templates_dir = Path(config.profile_dir) / "templates"
+    found = discover_templates(templates_dir)
+
+    if not found:
+        console.print(f"[yellow]No templates found in {templates_dir}[/yellow]")
+        return
+
+    table = Table(title=f"Available CV Templates ({templates_dir})")
+    table.add_column("Name", style="bold")
+    table.add_column("ATS-Friendly", justify="center", width=12)
+    table.add_column("Params")
+
+    for key, meta in sorted(found.items()):
+        ats = "[green]yes[/green]" if meta.ats_friendly else "[red]no[/red]"
+        if meta.is_legacy:
+            params_str = "[dim](legacy, no params)[/dim]"
+        elif meta.params:
+            parts = []
+            for pname, pdef in meta.params.items():
+                ptype = pdef.get("type", "str")
+                default = pdef.get("default", "")
+                parts.append(f"{pname} ({ptype}, default={default!r})")
+            params_str = ", ".join(parts)
+        else:
+            params_str = "[dim](no params)[/dim]"
+        table.add_row(key, ats, params_str)
+
+    console.print(table)
+
+
 @app.command()
 def generate(
     job_id: str = typer.Argument(help="Job ID (or prefix)"),
@@ -239,6 +275,9 @@ def generate(
     template: str = typer.Option(None, "--template", "-t", help="LaTeX template: ats_resume, developer_cv"),
     cover_letter: bool = typer.Option(False, "--cover-letter", "--cl", help="Generate a cover letter"),
     no_llm: bool = typer.Option(False, "--no-llm", help="Disable LLM features for this run"),
+    params: list[str] = typer.Option(
+        None, "--param", "-p", metavar="KEY=VALUE", help="Template parameter overrides (repeatable)"
+    ),
 ):
     """Generate a tailored CV for a job."""
     from tycho.cv.latex_builder import build_pdf, build_tex
@@ -248,6 +287,15 @@ def generate(
 
     config = _get_config()
     session = _get_db()
+
+    # Parse -p KEY=VALUE overrides
+    cli_template_params: dict = {}
+    for p in (params or []):
+        if "=" in p:
+            k, v = p.split("=", 1)
+            cli_template_params[k] = v
+        else:
+            console.print(f"[yellow]Ignoring invalid param (expected KEY=VALUE): {p!r}[/yellow]")
 
     # Find job
     job = get_job_by_id(session, job_id)
@@ -286,20 +334,32 @@ def generate(
     if "pdf" in output_formats:
         pdf_path = output_dir / f"CV_{language.upper()}.pdf"
         try:
-            result = build_pdf(tailored, template_dir, pdf_path, language=language, country=config.search.country, template=template_name)
+            result = build_pdf(
+                tailored, template_dir, pdf_path,
+                language=language, country=config.search.country, template=template_name,
+                config_params=config.output.template_params, cli_params=cli_template_params,
+            )
             console.print(f"  [green]PDF generated:[/green] {result}")
             generated_paths.append(str(result))
         except RuntimeError as e:
             console.print(f"  [red]PDF failed:[/red] {e}")
             # Fall back to .tex
             tex_path = output_dir / f"CV_{language.upper()}.tex"
-            result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country, template=template_name)
+            result = build_tex(
+                tailored, template_dir, tex_path,
+                language=language, country=config.search.country, template=template_name,
+                config_params=config.output.template_params, cli_params=cli_template_params,
+            )
             console.print(f"  [yellow]LaTeX source saved:[/yellow] {result}")
             generated_paths.append(str(result))
 
     if "tex" in output_formats:
         tex_path = output_dir / f"CV_{language.upper()}.tex"
-        result = build_tex(tailored, template_dir, tex_path, language=language, country=config.search.country, template=template_name)
+        result = build_tex(
+            tailored, template_dir, tex_path,
+            language=language, country=config.search.country, template=template_name,
+            config_params=config.output.template_params, cli_params=cli_template_params,
+        )
         console.print(f"  [green]LaTeX source saved:[/green] {result}")
         generated_paths.append(str(result))
 
@@ -573,6 +633,197 @@ def config_cmd():
     """Show current configuration."""
     config = _get_config()
     console.print(Panel(str(config.model_dump_json(indent=2)), title="Configuration"))
+
+
+@app.command("migrate-profile")
+def migrate_profile(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show changes without writing"),
+):
+    """Clean up profile YAML files to the new simplified format.
+
+    WARNING: Rewrites YAML files in place using PyYAML's round-trip, which does
+    NOT preserve inline comments. Back up your profile directory first if you have
+    hand-written comments you want to keep.
+    """
+    import yaml
+
+    config = _get_config()
+    profile_dir = Path(config.profile_dir)
+
+    console.print(
+        "[yellow]Warning:[/yellow] Running this command will rewrite YAML files. "
+        "Inline comments will be lost. Back up your profile directory first.\n"
+    )
+
+    subdirs = ["experience", "education", "other"]
+    files_to_process = []
+    for subdir in subdirs:
+        subdir_path = profile_dir / subdir
+        if subdir_path.exists():
+            files_to_process.extend(sorted(subdir_path.glob("*.yaml")))
+
+    any_changes = False
+
+    for yaml_path in files_to_process:
+        with yaml_path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        if not data or "bullets" not in data or not isinstance(data["bullets"], list):
+            if not dry_run:
+                console.print(f"  No changes needed in {yaml_path}")
+            continue
+
+        changes = []
+        for i, bullet in enumerate(data["bullets"]):
+            if not isinstance(bullet, dict):
+                continue
+            if "id" in bullet:
+                changes.append(f"  - bullets[{i}].id removed")
+                del bullet["id"]
+            if "variations" in bullet:
+                changes.append(f"  - bullets[{i}].variations removed")
+                del bullet["variations"]
+
+        if changes:
+            any_changes = True
+            if dry_run:
+                console.print(str(yaml_path))
+                for change in changes:
+                    console.print(change)
+                console.print()
+            else:
+                with yaml_path.open("w", encoding="utf-8") as f:
+                    yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+                console.print(f"[green]✓[/green] Updated {yaml_path}")
+        else:
+            if not dry_run:
+                console.print(f"  No changes needed in {yaml_path}")
+
+    # Handle personal.yaml
+    personal_path = profile_dir / "personal.yaml"
+    if personal_path.exists():
+        with personal_path.open("r", encoding="utf-8") as f:
+            personal_data = yaml.safe_load(f)
+
+        if personal_data and isinstance(personal_data.get("summary"), dict):
+            summary_dict = personal_data["summary"]
+            if "default" in summary_dict:
+                any_changes = True
+                if dry_run:
+                    console.print(str(personal_path))
+                    console.print("  - summary promoted from nested dict (summary.default) to plain string")
+                    console.print()
+                else:
+                    personal_data["summary"] = summary_dict["default"]
+                    with personal_path.open("w", encoding="utf-8") as f:
+                        yaml.dump(personal_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+                    console.print(f"[green]✓[/green] Updated {personal_path}")
+            else:
+                if not dry_run:
+                    console.print(f"  No changes needed in {personal_path}")
+        else:
+            if not dry_run:
+                console.print(f"  No changes needed in {personal_path}")
+
+    if not any_changes and dry_run:
+        console.print("[green]No changes needed in any profile files.[/green]")
+
+
+@app.command("add-experience")
+def add_experience(
+    from_description: bool = typer.Option(False, "--from-description", help="Use LLM to draft entry from description"),
+    no_llm: bool = typer.Option(False, "--no-llm", help="Disable LLM even if configured"),
+):
+    """Add a new experience/education/other entry to the profile."""
+    import os
+    import subprocess
+    import sys
+    import tempfile
+
+    import yaml as _yaml
+
+    from tycho.cv import experience_builder
+
+    config = _get_config()
+    profile_dir = Path(config.profile_dir)
+
+    entry_type = typer.prompt(
+        "Entry type [experience/education/other]",
+        default="experience",
+    )
+    if entry_type not in ("experience", "education", "other"):
+        console.print(f"[yellow]Unknown type '{entry_type}', using 'experience'[/yellow]")
+        entry_type = "experience"
+
+    entry_dict = None
+
+    if from_description and not no_llm:
+        llm_client = _get_llm_client()
+        if llm_client and llm_client.available:
+            console.print("Paste a job description or your own notes (Ctrl+D when done):")
+            description = sys.stdin.read()
+
+            # Load existing tags from skills.yaml
+            existing_tags: list[str] = []
+            skills_path = profile_dir / "skills.yaml"
+            if skills_path.exists():
+                skills_data = _yaml.safe_load(skills_path.read_text()) or {}
+                for skill in skills_data.get("technical", []):
+                    if isinstance(skill, dict):
+                        tags = skill.get("tags", [])
+                        if isinstance(tags, list):
+                            existing_tags.extend(tags)
+                        name = skill.get("name", "")
+                        if name:
+                            existing_tags.append(name.lower())
+
+            try:
+                entry_dict = experience_builder.draft_from_description(description, existing_tags, llm_client)
+                entry_dict["type"] = entry_type
+                console.print("[cyan]LLM drafted entry successfully.[/cyan]")
+            except Exception as e:
+                console.print(f"[yellow]LLM draft failed ({e}), falling back to wizard.[/yellow]")
+                entry_dict = None
+        else:
+            console.print("[yellow]LLM not available, falling back to wizard.[/yellow]")
+
+    if entry_dict is None:
+        entry_dict = experience_builder.wizard(profile_dir, entry_type=entry_type)
+
+    # Show the generated YAML
+    sep = "─" * 60
+    console.print(f"\n{sep}")
+    console.print(_yaml.dump(entry_dict, allow_unicode=True, sort_keys=False))
+    console.print(sep)
+
+    # Prompt for action
+    action = typer.prompt("[s]ave, [e]dit, [d]iscard (default: save)", default="s").strip().lower()
+
+    if action in ("d", "discard"):
+        console.print("Discarded.")
+        return
+
+    if action in ("e", "edit"):
+        editor = os.environ.get("EDITOR", "nano")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as tmp:
+            tmp_path = tmp.name
+            _yaml.dump(entry_dict, tmp, allow_unicode=True, sort_keys=False)
+        try:
+            subprocess.run([editor, tmp_path], check=True)
+            with open(tmp_path) as f:
+                entry_dict = _yaml.safe_load(f) or {}
+        finally:
+            os.unlink(tmp_path)
+
+        # Guard against empty or structurally invalid entry after editing
+        required_keys = ("company", "institution", "organization")
+        if not entry_dict or not any(k in entry_dict for k in required_keys):
+            console.print("[red]Entry is empty or missing required fields. Discarding.[/red]")
+            return
+
+    # Save
+    path = experience_builder.save_entry(entry_dict, profile_dir)
+    console.print(f"[green]✓ Saved to {path}[/green]")
 
 
 def _safe_filename(name: str) -> str:

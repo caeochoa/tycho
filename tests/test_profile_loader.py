@@ -25,19 +25,19 @@ class TestLoadProfile:
         profile = load_profile(profile_dir)
         oesia = next(e for e in profile.experience if e.id == "oesia_ai_engineer")
         assert len(oesia.bullets) == 2
-        assert oesia.bullets[0].id == "oesia_rag"
+        assert "OKM" in oesia.bullets[0].text
 
-    def test_bullet_variations_loaded(self, profile_dir):
+    def test_bullet_text_loaded(self, profile_dir):
         profile = load_profile(profile_dir)
         oesia = next(e for e in profile.experience if e.id == "oesia_ai_engineer")
-        rag_bullet = next(b for b in oesia.bullets if b.id == "oesia_rag")
-        assert rag_bullet.variations.ml_focus is not None
-        assert "LangChain" in rag_bullet.variations.ml_focus
+        rag_bullet = next(b for b in oesia.bullets if "OKM" in b.text)
+        assert rag_bullet.text != ""
+        assert "RAG" in rag_bullet.text or "OKM" in rag_bullet.text
 
-    def test_summary_variations(self, profile_dir):
+    def test_summary_loaded(self, profile_dir):
         profile = load_profile(profile_dir)
-        assert profile.personal.summary.default != ""
-        assert profile.personal.summary.variations.ml_focus is not None
+        assert isinstance(profile.personal.summary, str)
+        assert profile.personal.summary != ""
 
     def test_spanish_fields(self, profile_dir):
         profile = load_profile(profile_dir)
