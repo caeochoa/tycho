@@ -1,7 +1,7 @@
 """SQLite database via SQLAlchemy for job storage and tracking."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import (
@@ -35,6 +35,8 @@ class JobRow(Base):
     url = Column(String, default="")
     salary_min = Column(Float, nullable=True)
     salary_max = Column(Float, nullable=True)
+    salary_currency = Column(String, nullable=True)
+    salary_interval = Column(String, nullable=True)
     date_posted = Column(DateTime, nullable=True)
     date_collected = Column(DateTime, default=datetime.now)
     tags = Column(Text, default="[]")  # JSON array
@@ -93,6 +95,8 @@ def job_to_row(job) -> JobRow:
         url=job.url,
         salary_min=job.salary_min,
         salary_max=job.salary_max,
+        salary_currency=job.salary_currency,
+        salary_interval=job.salary_interval,
         date_posted=job.date_posted,
         date_collected=job.date_collected,
         tags=json.dumps(job.tags),
@@ -120,6 +124,8 @@ def row_to_job(row: JobRow):
         url=row.url,
         salary_min=row.salary_min,
         salary_max=row.salary_max,
+        salary_currency=row.salary_currency,
+        salary_interval=row.salary_interval,
         date_posted=row.date_posted,
         date_collected=row.date_collected,
         tags=json.loads(row.tags) if row.tags else [],
@@ -146,11 +152,28 @@ def upsert_job(session: Session, job) -> bool:
         existing.url = job.url
         existing.salary_min = job.salary_min
         existing.salary_max = job.salary_max
+        existing.salary_currency = job.salary_currency
+        existing.salary_interval = job.salary_interval
+        if job.date_posted is not None:
+            existing.date_posted = job.date_posted
         existing.tags = json.dumps(job.tags)
+        # Refresh the score only when this collect actually scored the job,
+        # so a run with scoring skipped doesn't wipe existing scores.
+        if job.score is not None:
+            existing.score = job.score
+            existing.score_details = (
+                json.dumps(job.score_details) if job.score_details else None
+            )
         return False
     else:
         session.add(job_to_row(job))
         return True
+
+
+def _max_age_filter(max_age_days: float):
+    """Filter for jobs posted (or, if undated, collected) within the last N days."""
+    cutoff = datetime.now() - timedelta(days=max_age_days)
+    return func.coalesce(JobRow.date_posted, JobRow.date_collected) >= cutoff
 
 
 def get_jobs(
@@ -158,6 +181,8 @@ def get_jobs(
     status: str | None = None,
     min_score: float | None = None,
     limit: int = 100,
+    max_age_days: float | None = None,
+    location: str | None = None,
 ):
     """Query jobs with optional filters."""
     from tycho.models import Job
@@ -167,6 +192,10 @@ def get_jobs(
         query = query.filter(JobRow.status == status)
     if min_score is not None:
         query = query.filter(JobRow.score >= min_score)
+    if max_age_days:
+        query = query.filter(_max_age_filter(max_age_days))
+    if location:
+        query = query.filter(JobRow.location.ilike(f"%{location}%"))
     query = query.order_by(JobRow.score.desc().nullslast(), JobRow.date_collected.desc())
     rows = query.limit(limit).all()
     return [row_to_job(r) for r in rows]
@@ -217,6 +246,7 @@ def get_jobs_paginated(
     limit: int = 25,
     sort_by: str = "score",
     sort_dir: str = "desc",
+    max_age_days: float | None = None,
 ) -> tuple[list, int]:
     """Query jobs with pagination. Returns (jobs, total_count)."""
     query = session.query(JobRow)
@@ -228,6 +258,10 @@ def get_jobs_paginated(
     if min_score is not None:
         query = query.filter(JobRow.score >= min_score)
         count_query = count_query.filter(JobRow.score >= min_score)
+    if max_age_days:
+        age_filter = _max_age_filter(max_age_days)
+        query = query.filter(age_filter)
+        count_query = count_query.filter(age_filter)
     if search:
         pattern = f"%{search}%"
         search_filter = (

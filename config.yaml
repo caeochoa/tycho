@@ -1,8 +1,32 @@
 search:
-  terms: ["AI Engineer", "Machine Learning Engineer", "Python Developer"]
-  locations: ["Remote", "Madrid", "London", "Edinburgh"]
-  country: "Spain"
-  results_per_source: 50
+  terms: [
+    "AI Engineer", "Machine Learning Engineer", "Python Developer",
+    "Applied AI Engineer", "AI Platform Engineer",
+    "ML Platform Engineer", "Staff ML Engineer",
+    "LLM Engineer", "Generative AI Engineer",
+    "Forward Deployed Engineer", "AI Deployment Engineer", "Solutions Engineer, AI"
+  ]
+  locations: ["Remote", "Madrid", "London", "Edinburgh", "Barcelona", "Galway"]
+  country: "Ireland"                 # default country_indeed; also selects CV phone number
+  location_countries:              # per-location country_indeed overrides for Indeed
+    Galway: "Ireland"
+    London: "UK"
+    Edinburgh: "UK"
+    Madrid: "Spain"
+    Barcelona: "Spain"
+  linkedin_fetch_description: true # fetch each LinkedIn job page for full description (slower)
+  results_per_source: 100
+  max_age_days: 30                 # skip postings older than this (0/null disables)
+
+# Company careers pages to monitor directly (ATS job boards).
+# Provider (greenhouse, lever, ashby, workable, smartrecruiters, recruitee,
+# personio) and board slug are auto-detected from the URL; add `provider:` and
+# `board:` keys to override. Every posting is collected and scored.
+# companies:
+#   - name: Acme
+#     url: https://boards.greenhouse.io/acme
+#   - name: Globex
+#     url: https://jobs.lever.co/globex
 
 scoring:
   weights:
@@ -14,18 +38,27 @@ scoring:
   thresholds:
     high_interest: 0.75
     low_interest: 0.25
+  recency:                # old postings decay so stale jobs sink in the ranking
+    enabled: true
+    full_score_days: 14   # no penalty up to this age
+    decay_days: 90        # linear decay ends here
+    min_factor: 0.4       # score multiplier floor for old jobs
   locations:
     preferred:
       - madrid
       - london
       - edinburgh
+      - barcelona
       - spain
       - uk
+      - galway
+      - ireland
     preferred_es:
       - españa
       - reino unido
       - edimburgo
       - londres
+      - barcelona
     remote_keywords:
       - remote
       - remoto

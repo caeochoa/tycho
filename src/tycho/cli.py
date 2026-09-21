@@ -48,26 +48,46 @@ def _get_llm_client():
 def collect(
     terms: list[str] | None = typer.Option(None, "--term", "-t", help="Search terms (overrides config)"),
     locations: list[str] | None = typer.Option(None, "--location", "-l", help="Locations (overrides config)"),
+    companies_only: bool = typer.Option(False, "--companies-only", help="Only collect from configured company careers pages"),
+    no_companies: bool = typer.Option(False, "--no-companies", help="Skip configured company careers pages"),
 ):
-    """Collect jobs from LinkedIn and Indeed."""
+    """Collect jobs from LinkedIn, Indeed, and configured company careers pages."""
     config = _get_config()
     search_terms = terms or config.search.terms
     search_locations = locations or config.search.locations
 
     console.print(f"[bold]Collecting jobs...[/bold]")
-    console.print(f"  Terms: {', '.join(search_terms)}")
-    console.print(f"  Locations: {', '.join(search_locations)}")
 
-    from tycho.collector.jobspy_collector import JobSpyCollector
     from tycho.collector.normalize import deduplicate
     from tycho.db import get_session, init_db, upsert_job
 
-    collector = JobSpyCollector(country=config.search.country)
-    raw_jobs = collector.collect(
-        search_terms=search_terms,
-        locations=search_locations,
-        results_wanted=config.search.results_per_source,
-    )
+    raw_jobs = []
+
+    if not companies_only:
+        console.print(f"  Terms: {', '.join(search_terms)}")
+        console.print(f"  Locations: {', '.join(search_locations)}")
+
+        from tycho.collector.jobspy_collector import JobSpyCollector
+
+        collector = JobSpyCollector(
+            country=config.search.country,
+            location_countries=config.search.location_countries,
+            linkedin_fetch_description=config.search.linkedin_fetch_description,
+            max_age_days=config.search.max_age_days,
+        )
+        raw_jobs.extend(
+            collector.collect(
+                search_terms=search_terms,
+                locations=search_locations,
+                results_wanted=config.search.results_per_source,
+            )
+        )
+
+    if not no_companies and config.companies:
+        console.print("  Collecting from company careers pages...")
+        from tycho.collector.company_collector import collect_company_jobs
+
+        raw_jobs.extend(collect_company_jobs(config))
 
     console.print(f"  Collected [bold]{len(raw_jobs)}[/bold] raw jobs")
 
@@ -106,6 +126,8 @@ def jobs(
     status: str | None = typer.Option(None, "--status", "-s", help="Filter by status"),
     limit: int = typer.Option(50, "--limit", "-n", help="Max results"),
     min_score: float | None = typer.Option(None, "--min-score", help="Minimum match score"),
+    max_age_days: int | None = typer.Option(None, "--max-age-days", help="Hide jobs posted more than N days ago"),
+    location: str | None = typer.Option(None, "--location", help="Filter by location (substring match)"),
 ):
     """List collected jobs."""
     from tycho.db import get_jobs
@@ -113,7 +135,14 @@ def jobs(
     config = _get_config()
     thresholds = config.scoring.thresholds
     session = _get_db()
-    job_list = get_jobs(session, status=status, min_score=min_score, limit=limit)
+    job_list = get_jobs(
+        session,
+        status=status,
+        min_score=min_score,
+        limit=limit,
+        max_age_days=max_age_days,
+        location=location,
+    )
     session.close()
 
     if not job_list:
@@ -126,8 +155,11 @@ def jobs(
     table.add_column("Title", style="bold", max_width=35)
     table.add_column("Company", max_width=20)
     table.add_column("Location", max_width=20)
+    table.add_column("Age", justify="right", width=5)
     table.add_column("Status", width=10)
     table.add_column("Source", width=8)
+
+    from tycho.timeutils import age_days, age_label
 
     for job in job_list:
         score_str = f"{job.score:.2f}" if job.score is not None else "—"
@@ -148,12 +180,16 @@ def jobs(
             "archived": "dim",
         }.get(job.status.value, "")
 
+        age = age_days(job.date_posted)
+        age_style = "dim" if age is not None and age > config.scoring.recency.decay_days else ""
+
         table.add_row(
             job.id[:8],
             Text(score_str, style=score_style),
             job.title,
             job.company,
             job.location,
+            Text(age_label(job.date_posted), style=age_style),
             Text(job.status.value, style=status_style),
             job.source,
         )
@@ -215,7 +251,7 @@ def show(
             table.add_column("Component", style="bold")
             table.add_column("Score", justify="right")
 
-            for key in ["keyword_match", "title_match", "skills_overlap", "location_match"]:
+            for key in ["keyword_match", "title_match", "skills_overlap", "location_match", "recency_factor"]:
                 if key in details:
                     table.add_row(key.replace("_", " ").title(), f"{details[key]:.3f}")
 
@@ -547,7 +583,7 @@ def rescore():
 
     engine = init_db(config.db_path)
     session = get_session(engine)
-    all_jobs = get_jobs(session, limit=10000)
+    all_jobs = get_jobs(session, limit=None)
 
     if not all_jobs:
         console.print("[yellow]No jobs found in database.[/yellow]")
