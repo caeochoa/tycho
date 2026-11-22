@@ -376,6 +376,15 @@ db_path: "tycho.db"
 output_dir: "output"
 ```
 
+## Development Workflow
+
+The main checkout is the **live pipeline**: the daily collect (hive worker in `tycho-worker/`) runs the globally installed `tycho`, whose editable install points at this checkout's `src/`, and `config.yaml`, `tycho.db` and `profile/` live here too. Changing branches or files here changes what production runs.
+
+- Keep the main checkout on `main`, with a clean tree. Pull merged changes with `git merge --ff-only origin/main`.
+- Do all feature work and PR fixes in a worktree: `git worktree add .worktrees/<name> -b <branch> main` (`.worktrees/` is gitignored). Run tests there with `PYTHONPATH=<worktree>/src .venv/bin/python -m pytest`.
+- Never use bare `git stash`, `git checkout <branch>` or `git reset` in the main checkout, and don't run several Claude sessions against it at once.
+- Known local-only edit: the macOS texlive path in `extra_paths` in `src/tycho/cv/latex_builder.py` stays uncommitted. Re-apply it after any change that touches that file.
+
 ## Phase Status
 
 - **Phase 1 (PoC)**: COMPLETE — collect, score, browse, generate tailored CVs
