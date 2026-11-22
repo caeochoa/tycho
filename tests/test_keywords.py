@@ -53,6 +53,21 @@ class TestExtractKeywords:
     def test_no_keywords(self):
         assert extract_keywords("Looking for a friendly team player") == []
 
+    def test_ai_native_terms(self):
+        desc = (
+            "You will build AI agents, design evals, apply prompt "
+            "engineering and fine tuning, and handle model deployment."
+        )
+        keywords = extract_keywords(desc)
+        for term in ["ai agents", "prompt engineering", "evals", "fine-tuning", "model deployment"]:
+            assert term in keywords, f"{term} not extracted"
+
+    def test_generic_words_not_extracted(self):
+        desc = "Manage insurance agents and run annual performance evaluations and deployment of stores."
+        keywords = extract_keywords(desc)
+        for term in ["ai agents", "evals", "model deployment", "model evaluation"]:
+            assert term not in keywords
+
     def test_multi_word_keywords(self):
         desc = "Must have machine learning and deep learning experience."
         keywords = extract_keywords(desc)

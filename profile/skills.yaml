@@ -1,4 +1,5 @@
 technical:
+  # --- Priority 1: Core identity skills (used for skills_overlap scoring) ---
   - name: "Python"
     tags: ["all"]
     priority: 1
@@ -8,50 +9,14 @@ technical:
   - name: "LangChain"
     tags: ["ai", "llm", "rag"]
     priority: 1
-  - name: "ONNX"
-    tags: ["ml", "cv", "optimization"]
-    priority: 2
-  - name: "CUDA"
-    tags: ["ml", "cv", "optimization"]
-    priority: 2
-  - name: "Azure"
-    tags: ["cloud", "ai"]
-    priority: 2
-  - name: "SQL"
-    tags: ["all", "data", "backend"]
+  - name: "LLM"
+    tags: ["ai", "llm", "agents"]
     priority: 1
-  - name: "NumPy"
-    tags: ["ml", "data", "ai"]
-    priority: 2
-  - name: "Pandas"
-    tags: ["data", "ml"]
-    priority: 2
-  - name: "Matplotlib"
-    tags: ["data", "cv"]
-    priority: 3
-  - name: "HTML"
-    tags: ["web", "frontend"]
-    priority: 3
-  - name: "CSS"
-    tags: ["web", "frontend"]
-    priority: 3
-  - name: "JavaScript"
-    tags: ["web", "frontend"]
-    priority: 2
-  - name: "React"
-    tags: ["web", "frontend"]
-    priority: 2
-  - name: "R"
-    tags: ["data", "statistics"]
-    priority: 3
-  - name: "MATLAB"
-    tags: ["data", "math"]
-    priority: 3
+  - name: "Fine-tuning"
+    tags: ["ml", "ai", "llm"]
+    priority: 1
   - name: "Machine Learning"
     tags: ["ml", "ai"]
-    priority: 1
-  - name: "Computer Vision"
-    tags: ["cv", "ai", "ml"]
     priority: 1
   - name: "Deep Learning"
     tags: ["ml", "ai"]
@@ -59,12 +24,91 @@ technical:
   - name: "RAG"
     tags: ["ai", "llm", "rag"]
     priority: 1
+  - name: "AI Agents"
+    tags: ["ai", "llm", "agents"]
+    priority: 1
+  - name: "Prompt Engineering"
+    tags: ["ai", "llm"]
+    priority: 1
+  - name: "Evals"
+    tags: ["ai", "llm", "evaluation"]
+    priority: 1
+
+  # --- Priority 2: Strong supporting skills ---
+  - name: "Computer Vision"
+    tags: ["cv", "ai", "ml"]
+    priority: 2
+  - name: "LangGraph"
+    tags: ["ai", "llm", "agents"]
+    priority: 2
+  - name: "Model Deployment"
+    tags: ["devops", "infra", "mlops"]
+    priority: 2
+  - name: "Transformers"
+    tags: ["ml", "ai", "llm"]
+    priority: 2
+  - name: "Azure"
+    tags: ["cloud", "ai"]
+    priority: 2
+  - name: "Kubernetes"
+    tags: ["devops", "cloud", "infra"]
+    priority: 2
+  - name: "Docker"
+    tags: ["devops", "cloud"]
+    priority: 2
+  - name: "vLLM"
+    tags: ["llm", "infra", "inference"]
+    priority: 2
+  - name: "CosmosDB"
+    tags: ["database", "vector", "cloud"]
+    priority: 2
+  - name: "SQL"
+    tags: ["all", "data", "backend"]
+    priority: 2
   - name: "NLP"
     tags: ["ai", "ml", "llm"]
     priority: 2
   - name: "xAI"
     tags: ["ai", "ml", "research"]
     priority: 2
+  - name: "MLOps"
+    tags: ["ml", "devops", "infra"]
+    priority: 2
+  - name: "ONNX"
+    tags: ["ml", "cv", "optimization"]
+    priority: 2
+  - name: "CUDA"
+    tags: ["ml", "cv", "optimization"]
+    priority: 2
+  - name: "JavaScript"
+    tags: ["web", "frontend"]
+    priority: 2
+  - name: "React"
+    tags: ["web", "frontend"]
+    priority: 2
+  - name: "Git"
+    tags: ["all"]
+    priority: 2
+  - name: "NumPy"
+    tags: ["ml", "data", "ai"]
+    priority: 2
+  - name: "Pandas"
+    tags: ["data", "ml"]
+    priority: 2
+
+  # --- Priority 3: Useful but secondary skills ---
+  - name: "HNSW"
+    tags: ["vector", "search", "rag"]
+    priority: 3
+  - name: "BM25"
+    tags: ["search", "rag", "retrieval"]
+    priority: 3
+  - name: "Hybrid Search"
+    tags: ["search", "rag", "retrieval"]
+    priority: 3
+  - name: "Claude Agent SDK"
+    tags: ["ai", "llm", "agents"]
+    priority: 3
   - name: "Linear Algebra"
     tags: ["math", "ml"]
     priority: 3
@@ -77,15 +121,24 @@ technical:
   - name: "Optimization"
     tags: ["math", "ml"]
     priority: 3
+  - name: "Matplotlib"
+    tags: ["data", "cv"]
+    priority: 3
   - name: "Jinja2"
     tags: ["python", "backend"]
     priority: 3
-  - name: "Docker"
-    tags: ["devops", "cloud"]
+  - name: "HTML"
+    tags: ["web", "frontend"]
     priority: 3
-  - name: "Git"
-    tags: ["all"]
-    priority: 2
+  - name: "CSS"
+    tags: ["web", "frontend"]
+    priority: 3
+  - name: "R"
+    tags: ["data", "statistics"]
+    priority: 3
+  - name: "MATLAB"
+    tags: ["data", "math"]
+    priority: 3
 
 languages:
   - language: "English"
