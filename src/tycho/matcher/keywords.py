@@ -28,6 +28,8 @@ TECH_KEYWORDS = {
     "machine learning", "deep learning", "computer vision", "nlp",
     "natural language processing", "reinforcement learning",
     "data science", "data engineering", "mlops",
+    "agents", "prompt engineering", "evals", "evaluations", "fine-tuning",
+    "deployment",
     "linear algebra", "probability", "statistics", "optimization",
     # ML Ops / serving
     "onnx", "cuda", "tensorrt", "triton",

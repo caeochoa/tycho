@@ -53,6 +53,24 @@ class TestExtractKeywords:
     def test_no_keywords(self):
         assert extract_keywords("Looking for a friendly team player") == []
 
+    def test_ai_native_terms(self):
+        # AI-lab style postings describe work as prompts/agents/evals rather than
+        # naming frameworks — these terms must be extractable (see OpenAI job li-4417173113)
+        desc = (
+            "You will build agents, design evals and evaluations, apply prompt "
+            "engineering and fine-tuning, and own the deployment of AI systems."
+        )
+        keywords = extract_keywords(desc)
+        for term in [
+            "agents",
+            "prompt engineering",
+            "evals",
+            "evaluations",
+            "fine-tuning",
+            "deployment",
+        ]:
+            assert term in keywords, f"{term} not extracted"
+
     def test_multi_word_keywords(self):
         desc = "Must have machine learning and deep learning experience."
         keywords = extract_keywords(desc)
