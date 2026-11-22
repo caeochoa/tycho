@@ -46,3 +46,9 @@ output/
 .env
 .env.local
 .worktrees/
+
+# Separate projects / tool scratch that live next to the repo
+tycho-worker/
+cvgen/
+.superpowers/
+.wtest
