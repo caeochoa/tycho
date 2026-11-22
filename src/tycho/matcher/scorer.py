@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 
-from tycho.config import ScoringConfig
+from tycho.config import RecencyConfig, ScoringConfig
 from tycho.matcher.keywords import extract_keywords
 from tycho.models import Job, Profile
+from tycho.timeutils import age_days
 
 
 def score_job(
@@ -30,6 +31,10 @@ def score_job(
         + weights.location_match * loc_score
     )
 
+    age = age_days(job.date_posted, fallback=job.date_collected)
+    recency_factor = _recency_factor(age, config.recency)
+    total *= recency_factor
+
     keyword_confidence = min(1.0, len(job_keywords) / config.min_keywords_confidence) if job_keywords else 0.0
     details = {
         "keyword_match": round(kw_score, 3),
@@ -37,11 +42,26 @@ def score_job(
         "title_match": round(title_score, 3),
         "skills_overlap": round(skills_score, 3),
         "location_match": round(loc_score, 3),
+        "recency_factor": round(recency_factor, 3),
+        "age_days": round(age, 1) if age is not None else None,
         "job_keywords": job_keywords,
         "total": round(total, 3),
     }
 
     return round(total, 3), details
+
+
+def _recency_factor(age: float | None, config: RecencyConfig) -> float:
+    """Score multiplier by posting age: 1.0 while fresh, linear decay to a floor.
+
+    Unknown age gets no penalty — missing dates shouldn't bury a job.
+    """
+    if not config.enabled or age is None or age <= config.full_score_days:
+        return 1.0
+    if config.decay_days <= config.full_score_days:
+        return config.min_factor
+    progress = (age - config.full_score_days) / (config.decay_days - config.full_score_days)
+    return max(config.min_factor, 1.0 - min(progress, 1.0) * (1.0 - config.min_factor))
 
 
 def _keyword_match_score(

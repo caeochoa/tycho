@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from tycho.config import load_config
 from tycho.db import init_db
+from tycho.timeutils import age_label
 
 WEB_DIR = Path(__file__).parent
 logger = logging.getLogger(__name__)
@@ -72,7 +73,9 @@ def create_app() -> FastAPI:
 
     # Register template engine on app state
     templates_dir = WEB_DIR / "templates"
-    app.state.templates = Jinja2Templates(directory=str(templates_dir))
+    templates = Jinja2Templates(directory=str(templates_dir))
+    templates.env.filters["age_label"] = age_label
+    app.state.templates = templates
 
     # Include routers
     from tycho.web.routes import router

@@ -12,6 +12,7 @@
     <td><a href="/jobs/{{ job.id }}">{{ job.title }}</a></td>
     <td>{{ job.company }}</td>
     <td>{{ job.location }}</td>
+    <td title="{{ job.date_posted.strftime('%Y-%m-%d') if job.date_posted else 'Unknown posting date' }}">{{ job.date_posted | age_label }}</td>
     <td>
         <select name="new_status"
                 hx-post="/jobs/{{ job.id }}/status"

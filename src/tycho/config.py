@@ -11,7 +11,10 @@ class SearchConfig(BaseModel):
     terms: list[str] = ["AI Engineer", "Machine Learning Engineer"]
     locations: list[str] = ["Remote", "Madrid"]
     country: str = "Spain"
+    location_countries: dict[str, str] = {}
+    linkedin_fetch_description: bool = True
     results_per_source: int = 50
+    max_age_days: int | None = 30  # Only collect postings this recent; None/0 disables
 
 
 class ScoringWeights(BaseModel):
@@ -33,10 +36,19 @@ class LocationConfig(BaseModel):
     abbreviations: dict[str, str] = Field(default_factory=dict)
 
 
+class RecencyConfig(BaseModel):
+    """Score decay for old postings so stale jobs sink in the ranking."""
+    enabled: bool = True
+    full_score_days: int = 14   # No penalty up to this age
+    decay_days: int = 90        # Age at which the factor bottoms out
+    min_factor: float = 0.4     # Score multiplier floor
+
+
 class ScoringConfig(BaseModel):
     weights: ScoringWeights = ScoringWeights()
     thresholds: ScoringThresholds = ScoringThresholds()
     locations: LocationConfig = LocationConfig()
+    recency: RecencyConfig = RecencyConfig()
     min_keywords_confidence: int = 8  # Keyword count required for full keyword_match confidence
 
 
@@ -70,6 +82,15 @@ class SchedulerConfig(BaseModel):
     cron: str = "0 8 * * *"  # Daily at 8 AM
 
 
+class CompanyConfig(BaseModel):
+    """A company careers page to monitor directly (ATS-hosted job board)."""
+    name: str                    # display name; used as Job.company
+    url: str                     # careers page / job board URL
+    provider: str | None = None  # override auto-detection ("greenhouse", "lever", ...)
+    board: str | None = None     # override board slug extracted from the URL
+    enabled: bool = True
+
+
 class TelegramConfig(BaseModel):
     enabled: bool = False
     token: str = ""
@@ -90,6 +111,7 @@ class TychoConfig(BaseModel):
     web: WebConfig = WebConfig()
     scheduler: SchedulerConfig = SchedulerConfig()
     telegram: TelegramConfig = TelegramConfig()
+    companies: list[CompanyConfig] = Field(default_factory=list)
     profile_dir: str = "profile"
     db_path: str = "tycho.db"
     output_dir: str = "output"

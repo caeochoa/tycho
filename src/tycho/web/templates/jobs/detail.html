@@ -61,7 +61,7 @@
             <table>
                 <thead><tr><th>Component</th><th>Score</th></tr></thead>
                 <tbody>
-                {% for key in ["keyword_match", "title_match", "skills_overlap", "location_match"] %}
+                {% for key in ["keyword_match", "title_match", "skills_overlap", "location_match", "recency_factor"] %}
                 {% if key in job.score_details %}
                 <tr>
                     <td>{{ key.replace("_", " ").title() }}</td>

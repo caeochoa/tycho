@@ -12,6 +12,7 @@
         {% endfor %}
     </select>
     <input type="number" name="min_score" value="{{ min_score if min_score is not none else '' }}" placeholder="Min score" step="0.05" min="0" max="1" style="max-width:120px">
+    <input type="number" name="max_age_days" value="{{ max_age_days if max_age_days is not none else '' }}" placeholder="Max age (days)" min="0" style="max-width:140px">
     <button type="submit">Filter</button>
 </form>
 

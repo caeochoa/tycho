@@ -205,3 +205,57 @@ class TestGetJobsPaginated:
         assert total == 1
         assert jobs[0].title == "ML Engineer"
         session.close()
+
+
+class TestCollectionTaskCompanies:
+    def test_company_jobs_collected_and_stored(self, tmp_path):
+        from unittest.mock import MagicMock, patch
+
+        from tycho.config import CompanyConfig, TychoConfig
+        from tycho.db import get_jobs, get_session, init_db
+        from tycho.models import Job
+        from tycho.scheduler.scheduler import collection_task
+
+        config = TychoConfig(
+            db_path=str(tmp_path / "test.db"),
+            companies=[
+                CompanyConfig(name="Acme", url="https://boards.greenhouse.io/acme")
+            ],
+        )
+        engine = init_db(config.db_path)
+        company_job = Job(
+            id="cj-1", source="greenhouse", source_id="gh-1",
+            title="ML Engineer", company="Acme", description="ML role",
+        )
+
+        with patch("tycho.collector.jobspy_collector.JobSpyCollector") as mock_jobspy, patch(
+            "tycho.collector.company_collector.collect_company_jobs",
+            return_value=[company_job],
+        ) as mock_companies:
+            mock_jobspy.return_value.collect.return_value = []
+            collection_task(config, engine)
+
+        mock_companies.assert_called_once_with(config)
+        session = get_session(engine)
+        stored = get_jobs(session, limit=10)
+        session.close()
+        assert len(stored) == 1
+        assert stored[0].company == "Acme"
+        assert stored[0].source == "greenhouse"
+
+    def test_max_age_days_passed_to_collector(self, tmp_path):
+        from unittest.mock import patch
+
+        from tycho.config import TychoConfig
+        from tycho.db import init_db
+        from tycho.scheduler.scheduler import collection_task
+
+        config = TychoConfig(db_path=str(tmp_path / "test.db"))
+        config.search.max_age_days = 7
+        engine = init_db(config.db_path)
+
+        with patch("tycho.collector.jobspy_collector.JobSpyCollector") as mock_jobspy:
+            mock_jobspy.return_value.collect.return_value = []
+            collection_task(config, engine)
+
+        assert mock_jobspy.call_args.kwargs["max_age_days"] == 7

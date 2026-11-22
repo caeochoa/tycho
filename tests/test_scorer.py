@@ -1,8 +1,10 @@
 """Tests for job-profile scoring."""
 
+from datetime import datetime, timedelta
+
 import pytest
 
-from tycho.config import LocationConfig, ScoringConfig, ScoringWeights
+from tycho.config import LocationConfig, RecencyConfig, ScoringConfig, ScoringWeights
 from tycho.matcher.scorer import (
     _keyword_match_score,
     _location_match_score,
@@ -229,6 +231,57 @@ class TestScoreJob:
         score, details = score_job(ml_job, sample_profile, config)
         # Score should equal keyword_match since weight is 1.0
         assert score == pytest.approx(details["keyword_match"], abs=0.001)
+
+
+class TestRecencyDecay:
+    def _score_at_age(self, ml_job, sample_profile, age_days, **recency_overrides):
+        ml_job.date_posted = datetime.now() - timedelta(days=age_days)
+        config = ScoringConfig(recency=RecencyConfig(**recency_overrides))
+        return score_job(ml_job, sample_profile, config)
+
+    def _base_score(self, ml_job, sample_profile):
+        """Score with recency disabled, as the undecayed reference."""
+        config = ScoringConfig(recency=RecencyConfig(enabled=False))
+        score, _ = score_job(ml_job, sample_profile, config)
+        return score
+
+    def test_fresh_job_not_penalised(self, ml_job, sample_profile):
+        base = self._base_score(ml_job, sample_profile)
+        score, details = self._score_at_age(ml_job, sample_profile, age_days=5)
+        assert score == pytest.approx(base, abs=0.001)
+        assert details["recency_factor"] == 1.0
+
+    def test_very_old_job_floored(self, ml_job, sample_profile):
+        base = self._base_score(ml_job, sample_profile)
+        score, details = self._score_at_age(ml_job, sample_profile, age_days=365)
+        assert details["recency_factor"] == pytest.approx(0.4)
+        assert score == pytest.approx(base * 0.4, abs=0.001)
+
+    def test_linear_midpoint(self, ml_job, sample_profile):
+        # full_score_days=14, decay_days=90 → midpoint at 52 days:
+        # factor = 1 - 0.5 * (1 - 0.4) = 0.7
+        _, details = self._score_at_age(ml_job, sample_profile, age_days=52)
+        assert details["recency_factor"] == pytest.approx(0.7, abs=0.01)
+
+    def test_falls_back_to_date_collected(self, ml_job, sample_profile):
+        ml_job.date_posted = None
+        ml_job.date_collected = datetime.now() - timedelta(days=365)
+        config = ScoringConfig()
+        base = self._base_score(ml_job, sample_profile)
+        score, details = score_job(ml_job, sample_profile, config)
+        assert details["recency_factor"] == pytest.approx(0.4)
+        assert score == pytest.approx(base * 0.4, abs=0.001)
+
+    def test_disabled_recency_no_penalty(self, ml_job, sample_profile):
+        score, details = self._score_at_age(
+            ml_job, sample_profile, age_days=365, enabled=False
+        )
+        assert details["recency_factor"] == 1.0
+
+    def test_details_include_age(self, ml_job, sample_profile):
+        _, details = self._score_at_age(ml_job, sample_profile, age_days=20)
+        assert details["age_days"] == pytest.approx(20, abs=1)
+        assert "recency_factor" in details
 
 
 class TestScoreJobs:
