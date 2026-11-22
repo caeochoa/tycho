@@ -1,13 +1,14 @@
 """Tests for database operations."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
 from tycho.db import (
     get_job_by_id,
     get_jobs,
+    get_jobs_paginated,
     get_session,
     init_db,
     job_to_row,
@@ -48,6 +49,45 @@ def sample_db_job():
         score_details={"keyword_match": 0.9, "title_match": 0.8},
         status=JobStatus.NEW,
     )
+
+
+class TestSalaryMetadata:
+    def test_salary_currency_and_interval_roundtrip(self, db_session):
+        job = Job(
+            id="sal-1",
+            source="greenhouse",
+            source_id="gh_1",
+            title="Engineer",
+            company="Acme",
+            salary_min=45.0,
+            salary_max=60.0,
+            salary_currency="EUR",
+            salary_interval="hourly",
+        )
+        upsert_job(db_session, job)
+        db_session.commit()
+        stored = get_job_by_id(db_session, "sal-1")
+        assert stored.salary_currency == "EUR"
+        assert stored.salary_interval == "hourly"
+
+    def test_salary_metadata_defaults_none(self, db_session, sample_db_job):
+        upsert_job(db_session, sample_db_job)
+        db_session.commit()
+        stored = get_job_by_id(db_session, sample_db_job.id)
+        assert stored.salary_currency is None
+        assert stored.salary_interval is None
+
+    def test_upsert_updates_salary_metadata(self, db_session):
+        job = Job(id="sal-2", source="lever", source_id="lv_1", title="Dev", company="Globex")
+        upsert_job(db_session, job)
+        db_session.commit()
+        job.salary_currency = "GBP"
+        job.salary_interval = "yearly"
+        assert upsert_job(db_session, job) is False
+        db_session.commit()
+        stored = get_job_by_id(db_session, "sal-2")
+        assert stored.salary_currency == "GBP"
+        assert stored.salary_interval == "yearly"
 
 
 class TestJobConversion:
@@ -116,6 +156,30 @@ class TestUpsertJob:
         retrieved = get_job_by_id(db_session, "test-123")
         assert retrieved.title == "Senior ML Engineer"
         assert retrieved.description == "Updated description"
+
+    def test_upsert_refreshes_date_posted(self, db_session, sample_db_job):
+        upsert_job(db_session, sample_db_job)
+        db_session.commit()
+
+        newer = sample_db_job.model_copy(
+            update={"id": "other-id", "date_posted": datetime(2026, 7, 1)}
+        )
+        upsert_job(db_session, newer)
+        db_session.commit()
+
+        stored = get_job_by_id(db_session, sample_db_job.id)
+        assert stored.date_posted == datetime(2026, 7, 1)
+
+    def test_upsert_keeps_date_posted_when_incoming_none(self, db_session, sample_db_job):
+        upsert_job(db_session, sample_db_job)
+        db_session.commit()
+
+        undated = sample_db_job.model_copy(update={"id": "other-id", "date_posted": None})
+        upsert_job(db_session, undated)
+        db_session.commit()
+
+        stored = get_job_by_id(db_session, sample_db_job.id)
+        assert stored.date_posted == sample_db_job.date_posted
 
     def test_different_source_id_creates_new(self, db_session, sample_db_job):
         upsert_job(db_session, sample_db_job)
@@ -187,6 +251,63 @@ class TestGetJobs:
         jobs = get_jobs(db_session)
         scores = [j.score for j in jobs]
         assert scores == sorted(scores, reverse=True)
+
+
+class TestMaxAgeFilter:
+    def _add_job(self, session, job_id, date_posted, date_collected=None):
+        job = Job(
+            id=job_id,
+            source="test",
+            source_id=job_id,
+            title="Job",
+            company="Corp",
+            date_posted=date_posted,
+            date_collected=date_collected or datetime.now(),
+        )
+        upsert_job(session, job)
+
+    def test_get_jobs_max_age_filters_old(self, db_session):
+        self._add_job(db_session, "fresh", datetime.now() - timedelta(days=5))
+        self._add_job(db_session, "stale", datetime.now() - timedelta(days=100))
+        db_session.commit()
+
+        jobs = get_jobs(db_session, max_age_days=30)
+        assert [j.id for j in jobs] == ["fresh"]
+
+    def test_get_jobs_max_age_uses_date_collected_fallback(self, db_session):
+        # No date_posted → recent date_collected keeps the job visible
+        self._add_job(db_session, "undated", None, date_collected=datetime.now())
+        self._add_job(
+            db_session, "old-undated", None,
+            date_collected=datetime.now() - timedelta(days=100),
+        )
+        db_session.commit()
+
+        jobs = get_jobs(db_session, max_age_days=30)
+        assert [j.id for j in jobs] == ["undated"]
+
+    def test_get_jobs_no_filter_by_default(self, db_session):
+        self._add_job(db_session, "stale", datetime.now() - timedelta(days=1000))
+        db_session.commit()
+
+        assert len(get_jobs(db_session)) == 1
+
+    def test_paginated_max_age_filters_and_counts(self, db_session):
+        self._add_job(db_session, "fresh", datetime.now() - timedelta(days=5))
+        self._add_job(db_session, "stale", datetime.now() - timedelta(days=100))
+        db_session.commit()
+
+        jobs, total = get_jobs_paginated(db_session, max_age_days=30)
+        assert [j.id for j in jobs] == ["fresh"]
+        assert total == 1
+
+    def test_paginated_sort_by_date_posted(self, db_session):
+        self._add_job(db_session, "older", datetime.now() - timedelta(days=10))
+        self._add_job(db_session, "newer", datetime.now() - timedelta(days=1))
+        db_session.commit()
+
+        jobs, _ = get_jobs_paginated(db_session, sort_by="date_posted", sort_dir="desc")
+        assert [j.id for j in jobs] == ["newer", "older"]
 
 
 class TestGetJobById:

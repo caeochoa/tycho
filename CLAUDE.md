@@ -9,7 +9,8 @@ uv venv && uv pip install -e ".[web]" --python .venv/bin/python
 source .venv/bin/activate
 tycho profile          # validate profile YAML
 tycho config-cmd           # show current configuration
-tycho collect          # scrape jobs from LinkedIn + Indeed
+tycho collect          # scrape jobs from LinkedIn + Indeed + company careers pages
+tycho collect --companies-only   # only configured company careers pages (skip JobSpy)
 tycho jobs             # list jobs sorted by score
 tycho show <id>        # inspect job + score breakdown
 tycho generate <id>    # generate tailored CV
@@ -50,6 +51,8 @@ tycho/
 │   ├── collector/
 │   │   ├── base.py                 # Abstract collector interface
 │   │   ├── jobspy_collector.py     # python-jobspy integration (LinkedIn + Indeed)
+│   │   ├── company_collector.py    # Direct ATS job board APIs (Greenhouse, Lever, Ashby, ...)
+│   │   ├── parsing.py              # Shared defensive value parsing (str/float/date)
 │   │   └── normalize.py            # Deduplication by (company, title, location) hash
 │   ├── matcher/
 │   │   ├── keywords.py             # Regex + LLM keyword extraction from job descriptions
@@ -89,7 +92,7 @@ tycho/
 ### Data Flow
 
 ```
-tycho collect → JobSpy scrape → normalize/dedup → score against profile → SQLite
+tycho collect → JobSpy scrape + company ATS APIs → normalize/dedup → score against profile → SQLite
 tycho generate <id> → load profile → detect focus → select bullets/variations → Jinja2 → LaTeX → PDF
 tycho serve → FastAPI + HTMX dashboard → browse/filter/generate from browser
 scheduler (optional) → APScheduler cron → collection_task → same pipeline as collect
@@ -159,14 +162,30 @@ bullets:
 - Disable an entry: set `enabled: false` in the YAML
 - Bullets are scored by tag overlap with job keywords, then the best variation is selected
 
+### Company Careers Page Monitoring (company_collector.py)
+
+Monitors specific companies' careers pages directly via their ATS provider's public JSON API — no HTML scraping, independent of LinkedIn/Indeed. Configured under `companies:` in config.yaml (name + URL is enough); provider and board slug are auto-detected from the URL, with `provider:`/`board:` overrides for unusual setups and `enabled: false` to pause a company.
+
+- **Supported providers:** greenhouse, lever, ashby, workable, smartrecruiters, recruitee, personio
+- **Registry pattern:** `PROVIDERS` dict maps name → `Provider(url_patterns, fetch)`. Adding a new ATS = one entry: URL regex(es) with the board slug as first capture group + a fetch function mapping the API's JSON to `Job`
+- **Job mapping:** `source` = provider name, `source_id` = ATS job id (satisfies the `(source, source_id)` upsert constraint), `company` = the configured display name (keeps dedup keys stable)
+- **Everything is collected** (no term filtering) — company boards are small and the scorer ranks the postings
+- **Compensation:** adapters map pay ranges into `salary_min/max/currency/interval` where the ATS exposes them
+- **Error isolation:** one failing/unrecognized company prints a `[warning]` and never aborts the run
+- Runs as part of `tycho collect` and scheduled collection; `--companies-only` skips JobSpy, `--no-companies` skips company boards
+
 ### Scoring Algorithm (scorer.py)
 
 Score = weighted sum of 4 components (weights in config.yaml):
 
-- **keyword_match** (0.35): % of job description keywords found in profile skills
-- **title_match** (0.25): Jaccard similarity of job title words vs profile titles
-- **skills_overlap** (0.25): Jaccard similarity of job skills vs profile skills
+- **keyword_match** (0.30): % of job description keywords found in profile skills, scaled by extraction confidence (`scoring.min_keywords_confidence`, must be >= 1: keyword count needed for full confidence)
+- **title_match** (0.20): Profile-recall — fraction of profile title words (minus seniority stopwords) found in the job title
+- **skills_overlap** (0.35): Profile recall — fraction of your core (priority-1) skills the job mentions
 - **location_match** (0.15): Binary — 1.0 for remote/known cities, 0.0 otherwise. Uses word-boundary regex to avoid false positives. Locations are configurable via `scoring.locations` in config.yaml. Abbreviations (e.g. `es` → `spain`) are expanded before matching.
+
+The weighted sum is then multiplied by a **recency factor** (`scoring.recency` in config.yaml): 1.0 up to `full_score_days`, decaying linearly to `min_factor` at `decay_days`, so stale postings sink in the ranking. Age comes from `date_posted` (falling back to `date_collected`; unknown age = no penalty). The factor and age are recorded in `score_details` (`recency_factor`, `age_days`). Note: stored scores only decay when re-scored — `tycho collect` refreshes re-seen jobs, run `tycho rescore` periodically for the rest.
+
+Collection also enforces freshness upstream: `search.max_age_days` (default 30) is passed to JobSpy as `hours_old` and stale rows are dropped defensively (LinkedIn leaks old postings past the filter). Jobs and the web dashboard show a Posted/Age column, sortable and filterable by `--max-age-days` / `max_age_days`.
 
 ### Focus Detection (module_selector.py)
 
@@ -276,8 +295,22 @@ PDF compilation requires `pdflatex` or `latexmk`. Falls back to `.tex` output if
 search:
   terms: ["AI Engineer", "Machine Learning Engineer"]  # JobSpy search queries
   locations: ["Remote", "Madrid", "London"]            # Search locations
-  country: "Spain"                                      # Affects phone number + Indeed locale
+  country: "Ireland"                                    # Affects phone number + default Indeed locale
+  location_countries:                                   # Per-location Indeed locale overrides
+    Galway: "Ireland"
+    London: "UK"
+  linkedin_fetch_description: true                      # Fetch full LinkedIn descriptions (slower; needed for scoring)
   results_per_source: 50                                # Per (term, location) pair
+  max_age_days: 30                                      # Skip postings older than this (0/null disables)
+
+companies:                       # Company careers pages monitored via ATS APIs
+  - name: Acme                   # Display name (used as Job.company)
+    url: https://boards.greenhouse.io/acme   # Provider + board auto-detected
+  - name: Globex
+    url: https://globex.example.com/jobs
+    provider: lever              # Optional: override auto-detection
+    board: globex                # Optional: override board slug
+    enabled: true                # Optional: false to pause
 
 scoring:
   weights:                    # Must sum to 1.0
@@ -288,6 +321,11 @@ scoring:
   thresholds:
     high_interest: 0.75       # Green highlight in dashboard
     low_interest: 0.30        # Dimmed in display
+  recency:                     # Old postings decay so stale jobs sink in the ranking
+    enabled: true
+    full_score_days: 14        # No penalty up to this age
+    decay_days: 90             # Linear decay ends here
+    min_factor: 0.4            # Score multiplier floor
   locations:
     preferred:                 # English location names (word-boundary matched)
       - madrid
@@ -348,6 +386,9 @@ output_dir: "output"
 
 **Add a new experience entry:**
 Create `profile/experience/new_job.yaml` following the schema above. Run `tycho profile` to validate.
+
+**Monitor a company's careers page:**
+Add `- name: Acme` / `url: https://boards.greenhouse.io/acme` under `companies:` in config.yaml. Provider is auto-detected. Collect with `tycho collect` (or `--companies-only`).
 
 **Change search terms:**
 Edit `config.yaml` → `search.terms` and `search.locations`.

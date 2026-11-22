@@ -24,12 +24,23 @@ def collection_task(config: TychoConfig, engine):
         from tycho.cv.profile_loader import load_profile
         from tycho.matcher.scorer import score_jobs
 
-        collector = JobSpyCollector(country=config.search.country)
+        collector = JobSpyCollector(
+            country=config.search.country,
+            location_countries=config.search.location_countries,
+            linkedin_fetch_description=config.search.linkedin_fetch_description,
+            max_age_days=config.search.max_age_days,
+        )
         raw_jobs = collector.collect(
             search_terms=config.search.terms,
             locations=config.search.locations,
             results_wanted=config.search.results_per_source,
         )
+
+        if config.companies:
+            from tycho.collector.company_collector import collect_company_jobs
+
+            raw_jobs.extend(collect_company_jobs(config))
+
         raw_count = len(raw_jobs)
 
         jobs = deduplicate(raw_jobs)

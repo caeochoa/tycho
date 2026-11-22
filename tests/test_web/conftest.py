@@ -1,5 +1,7 @@
 """Shared fixtures for web tests."""
 
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -54,6 +56,7 @@ def seeded_client(web_app, web_db):
             score=0.85,
             score_details={"keyword_match": 0.9, "title_match": 0.8, "skills_overlap": 0.7, "location_match": 1.0},
             status=JobStatus.NEW,
+            date_posted=datetime.now() - timedelta(days=3),
         ),
         Job(
             id="job-be-002",
@@ -65,6 +68,7 @@ def seeded_client(web_app, web_db):
             description="Backend role with Python and FastAPI.",
             score=0.60,
             status=JobStatus.INTERESTED,
+            date_posted=datetime.now() - timedelta(days=10),
         ),
         Job(
             id="job-ds-003",
@@ -76,6 +80,7 @@ def seeded_client(web_app, web_db):
             description="Data science role with pandas and SQL.",
             score=0.40,
             status=JobStatus.NEW,
+            date_posted=datetime.now() - timedelta(days=100),
         ),
     ]
     for job in jobs:

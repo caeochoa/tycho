@@ -16,20 +16,42 @@ logger = logging.getLogger(__name__)
 
 # Common tech keywords to look for (beyond profile skills)
 TECH_KEYWORDS = {
+    # Languages
     "python", "java", "javascript", "typescript", "c++", "c#", "go", "rust",
     "ruby", "php", "swift", "kotlin", "scala", "r", "matlab",
+    # ML / AI frameworks
     "pytorch", "tensorflow", "keras", "scikit-learn", "sklearn",
     "pandas", "numpy", "scipy", "matplotlib",
     "langchain", "llm", "rag", "gpt", "bert", "transformer",
-    "docker", "kubernetes", "aws", "azure", "gcp", "cloud",
-    "sql", "postgresql", "mysql", "mongodb", "redis", "elasticsearch",
-    "react", "vue", "angular", "node", "fastapi", "flask", "django",
-    "git", "ci/cd", "linux", "agile", "scrum",
+    "hugging face", "huggingface", "stable diffusion", "whisper",
+    # ML concepts
     "machine learning", "deep learning", "computer vision", "nlp",
     "natural language processing", "reinforcement learning",
     "data science", "data engineering", "mlops",
-    "onnx", "cuda", "tensorrt",
+    "linear algebra", "probability", "statistics", "optimization",
+    # ML Ops / serving
+    "onnx", "cuda", "tensorrt", "triton",
+    # Vector / GenAI infra
+    "pinecone", "weaviate", "faiss", "qdrant", "chroma",
+    # Cloud & DevOps
+    "docker", "kubernetes", "aws", "azure", "gcp", "cloud",
+    "terraform", "ansible", "helm", "jenkins", "ci/cd",
+    "grafana", "prometheus", "linux",
+    # Data platforms
+    "databricks", "snowflake", "dbt", "airflow", "spark", "kafka", "hadoop",
+    # Databases
+    "sql", "postgresql", "mysql", "mongodb", "redis", "elasticsearch",
+    # Web / backend
+    "react", "vue", "angular", "node", "fastapi", "flask", "django",
     "api", "rest", "graphql", "microservices",
+    # Methodology
+    "git", "agile", "scrum",
+    # Microsoft ecosystem
+    "power platform", "power automate", "power bi", "power apps",
+    "copilot studio", "azure openai", "azure ai foundry",
+    "sharepoint", "dynamics 365",
+    # Low-code / automation
+    "rpa", "bpm", "low-code", "no-code",
 }
 
 

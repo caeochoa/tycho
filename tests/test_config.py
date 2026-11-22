@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from tycho.config import (
+    CompanyConfig,
     LLMConfig,
     OutputConfig,
     ScoringConfig,
@@ -36,6 +37,17 @@ class TestDefaults:
         cfg = LLMConfig()
         assert cfg.provider == "anthropic"
         assert cfg.temperature == 0.3
+
+    def test_search_max_age_days_default(self):
+        cfg = SearchConfig()
+        assert cfg.max_age_days == 30
+
+    def test_recency_defaults(self):
+        cfg = ScoringConfig()
+        assert cfg.recency.enabled is True
+        assert cfg.recency.full_score_days == 14
+        assert cfg.recency.decay_days == 90
+        assert cfg.recency.min_factor == 0.4
 
 
 class TestLoadConfig:
@@ -78,6 +90,53 @@ class TestLoadConfig:
         assert cfg.output.formats == ["pdf", "tex"]
         assert cfg.db_path == "custom.db"
 
+    def test_companies_default_empty(self, tmp_path):
+        cfg = load_config(tmp_path / "nonexistent.yaml")
+        assert cfg.companies == []
+
+    def test_companies_from_yaml(self, tmp_path):
+        data = {
+            "companies": [
+                {"name": "Acme", "url": "https://boards.greenhouse.io/acme"},
+                {
+                    "name": "Globex",
+                    "url": "https://globex.example.com/careers",
+                    "provider": "lever",
+                    "board": "globex",
+                    "enabled": False,
+                },
+            ]
+        }
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(yaml.dump(data))
+        cfg = load_config(config_path)
+        assert len(cfg.companies) == 2
+        acme = cfg.companies[0]
+        assert isinstance(acme, CompanyConfig)
+        assert acme.name == "Acme"
+        assert acme.url == "https://boards.greenhouse.io/acme"
+        assert acme.provider is None
+        assert acme.board is None
+        assert acme.enabled is True
+        globex = cfg.companies[1]
+        assert globex.provider == "lever"
+        assert globex.board == "globex"
+        assert globex.enabled is False
+
+    def test_max_age_days_and_recency_from_yaml(self, tmp_path):
+        data = {
+            "search": {"max_age_days": 7},
+            "scoring": {"recency": {"enabled": False, "min_factor": 0.2}},
+        }
+        config_path = tmp_path / "config.yaml"
+        config_path.write_text(yaml.dump(data))
+        cfg = load_config(config_path)
+        assert cfg.search.max_age_days == 7
+        assert cfg.scoring.recency.enabled is False
+        assert cfg.scoring.recency.min_factor == 0.2
+        # Unset recency fields keep defaults
+        assert cfg.scoring.recency.full_score_days == 14
+
     def test_none_path_uses_default(self, monkeypatch, tmp_path):
         monkeypatch.chdir(tmp_path)
         # No config.yaml exists → defaults
@@ -87,3 +146,11 @@ class TestLoadConfig:
 
 # Need this import for approx
 import pytest
+
+
+def test_min_keywords_confidence_must_be_positive():
+    import pytest
+    from pydantic import ValidationError
+    from tycho.config import ScoringConfig
+    with pytest.raises(ValidationError):
+        ScoringConfig(min_keywords_confidence=0)

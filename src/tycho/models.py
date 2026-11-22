@@ -29,6 +29,8 @@ class Job(BaseModel):
     url: str = ""
     salary_min: float | None = None
     salary_max: float | None = None
+    salary_currency: str | None = None
+    salary_interval: str | None = None  # yearly, monthly, weekly, daily, hourly
     date_posted: datetime | None = None
     date_collected: datetime = Field(default_factory=datetime.now)
     tags: list[str] = Field(default_factory=list)

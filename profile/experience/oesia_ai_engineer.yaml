@@ -8,7 +8,7 @@ dates_es: "2024 - Presente"
 location: "Madrid, Spain"
 priority: 1
 tags: ["ai", "ml", "python", "rag", "cv", "cloud", "llm"]
-skills: ["Python", "LangChain", "PyTorch", "ONNX", "CUDA", "Azure", "SQL"]
+skills: ["Python", "LangChain", "PyTorch", "ONNX", "CUDA", "Azure", "SQL", "Kubernetes"]
 
 bullets:
   - id: "oesia_rag"
@@ -19,6 +19,33 @@ bullets:
     variations:
       ml_focus: "Architected RAG pipeline using LangChain and vector databases for enterprise knowledge retrieval, implementing multi-step reasoning agents with self-validation."
       backend_focus: "Built full-stack no-code platform with Python backend serving RAG-based document retrieval, SQL query translation, and multi-step reasoning agents."
+
+  - id: "oesia_okm_backend"
+    text: "Led backend development of OKM, a generative AI platform for enterprises."
+    text_es: "Desarrollo del backend de OKM, una plataforma de Inteligencia Artificial Generativa para empresas."
+    tags: ["backend", "python", "ai", "llm"]
+    priority: 2
+    variations:
+      ml_focus: "Built backend infrastructure for OKM, an enterprise-grade generative AI platform."
+      backend_focus: "Led backend engineering for OKM, delivering a production-ready generative AI platform for enterprise clients."
+
+  - id: "oesia_agents"
+    text: "Implemented AI agents with document Q&A, SQL query translation, and multi-step reasoning with self-validation capabilities."
+    text_es: "Implementación de agentes de IA con funcionalidades de preguntas y respuestas sobre documentos, traducción de consultas SQL y razonamiento en varios pasos con capacidades de auto-validación."
+    tags: ["rag", "llm", "ai", "python", "agents"]
+    priority: 2
+    variations:
+      ml_focus: "Designed multi-step reasoning agents with self-validation, document Q&A, and SQL query translation over enterprise data sources."
+      backend_focus: "Implemented agentic pipelines with document retrieval, SQL translation, and multi-step reasoning with self-validation."
+
+  - id: "oesia_tech_lead"
+    text: "Technical lead for a production OKM deployment, managing client technical integration and leading the development team."
+    text_es: "Responsable técnico de una de las implementaciones de OKM con un cliente en producción, manejando la integración técnica con el cliente y liderando el equipo de desarrollo."
+    tags: ["leadership", "backend", "client", "deployment"]
+    priority: 2
+    variations:
+      ml_focus: "Led end-to-end production deployment of AI platform, overseeing client integration and coordinating the development team."
+      backend_focus: "Served as technical lead for a live OKM client deployment, owning client-side integration and team coordination."
 
   - id: "oesia_cv"
     text: "Led computer vision module improvement for Banco-IR, a real-time object detection project. Reduced latency to <20ms through ONNX/CUDA optimization and model retraining. Mentored a junior developer through systematic knowledge transfer, resulting in successful project handover and improved client satisfaction."

@@ -45,6 +45,25 @@ class TestJobList:
         # With 3 jobs and per_page=5, all fit on one page
         assert "ML Engineer" in resp.text
 
+    def test_posted_column_shows_age(self, seeded_client):
+        resp = seeded_client.get("/jobs")
+        assert resp.status_code == 200
+        assert "Posted" in resp.text
+        assert "3d" in resp.text     # ML Engineer, 3 days old
+        assert "3mo" in resp.text    # Data Scientist, 100 days old
+
+    def test_filter_by_max_age(self, seeded_client):
+        resp = seeded_client.get("/jobs?max_age_days=30")
+        assert resp.status_code == 200
+        assert "ML Engineer" in resp.text
+        assert "Data Scientist" not in resp.text
+
+    def test_sort_by_date_posted(self, seeded_client):
+        resp = seeded_client.get("/jobs?sort=date_posted&dir=asc")
+        assert resp.status_code == 200
+        # Oldest first
+        assert resp.text.index("Data Scientist") < resp.text.index("ML Engineer")
+
     def test_htmx_returns_partial(self, seeded_client):
         resp = seeded_client.get("/jobs", headers={"HX-Request": "true"})
         assert resp.status_code == 200

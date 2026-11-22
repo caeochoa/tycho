@@ -29,6 +29,7 @@ async def job_list(
     status: str | None = Query(None),
     min_score: float | None = Query(None),
     search: str | None = Query(None),
+    max_age_days: int | None = Query(None, ge=0),
     page: int = Query(1, ge=1),
     per_page: int = Query(25, ge=5, le=100),
     sort: str = Query("score"),
@@ -49,6 +50,7 @@ async def job_list(
         limit=per_page,
         sort_by=sort,
         sort_dir=dir,
+        max_age_days=max_age_days,
     )
 
     total_pages = max(1, math.ceil(total / per_page))
@@ -64,6 +66,7 @@ async def job_list(
         "status": status,
         "min_score": min_score,
         "search": search or "",
+        "max_age_days": max_age_days,
         "sort": sort,
         "dir": dir,
         "statuses": VALID_STATUSES,
@@ -120,7 +123,7 @@ async def update_status(
     templates = get_templates(request)
     job, error = get_job_by_prefix(session, job_id)
     if error:
-        return HTMLResponse(f"<tr><td colspan='7'>{error}</td></tr>", status_code=404)
+        return HTMLResponse(f"<tr><td colspan='9'>{error}</td></tr>", status_code=404)
 
     update_job_status(session, job.id, new_status)
     session.commit()
@@ -177,6 +180,7 @@ async def bulk_update_status(
             "status": None,
             "min_score": None,
             "search": "",
+            "max_age_days": None,
             "sort": "score",
             "dir": "desc",
             "statuses": VALID_STATUSES,

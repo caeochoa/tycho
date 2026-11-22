@@ -1,7 +1,7 @@
 """Shared test fixtures for Tycho."""
 
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -216,7 +216,9 @@ def ml_job():
             "LangChain experience is a plus. Deep learning and CUDA required."
         ),
         url="https://example.com/job/ml",
-        date_posted=datetime(2025, 1, 15),
+        # Relative date: keeps the job "fresh" so recency decay stays neutral
+        # in tests that exercise the weight math.
+        date_posted=datetime.now() - timedelta(days=3),
         status=JobStatus.NEW,
     )
 
@@ -235,7 +237,7 @@ def backend_job():
             "Docker, Kubernetes, PostgreSQL, REST APIs, and microservices."
         ),
         url="https://example.com/job/be",
-        date_posted=datetime(2025, 1, 20),
+        date_posted=datetime.now() - timedelta(days=3),
         status=JobStatus.NEW,
     )
 
