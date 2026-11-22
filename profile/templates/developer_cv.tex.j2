@@ -70,7 +70,7 @@
 % --- Summary ---
 \cvsect{Summary}
 
-{{ p.summary }}
+{{ p.summary | latex_escape }}
 
 <% endif %>
 % --- Skills ---
@@ -90,7 +90,7 @@
   <%- if entry.bullets %>
   \begin{itemize}
   <% for bullet in entry.bullets %>
-    \item {{ bullet.text }}
+    \item {{ bullet.text | latex_escape }}
   <% endfor -%>
   \end{itemize}
   <%- endif %>
@@ -111,7 +111,7 @@
   <%- if entry.bullets %>
   \begin{itemize}
   <% for bullet in entry.bullets %>
-    \item {{ bullet.text }}
+    \item {{ bullet.text | latex_escape }}
   <% endfor -%>
   \end{itemize}
   <%- endif %>
@@ -132,7 +132,7 @@
   <%- if entry.bullets %>
   \begin{itemize}
   <% for bullet in entry.bullets %>
-    \item {{ bullet.text }}
+    \item {{ bullet.text | latex_escape }}
   <% endfor -%>
   \end{itemize}
   <%- endif %>
