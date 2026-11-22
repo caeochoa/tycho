@@ -33,11 +33,24 @@ def parse_date(val) -> datetime | None:
     if val is None:
         return None
     if isinstance(val, datetime):
-        return val
+        return _to_naive_local(val)
     try:
         import pandas as pd
         if pd.isna(val):
             return None
-        return datetime.fromisoformat(str(val))
+        text = str(val).strip()
+        # ATS APIs use 'Z' / ' UTC' suffixes that fromisoformat may reject.
+        if text.endswith(" UTC"):
+            text = text[:-4] + "+00:00"
+        elif text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        return _to_naive_local(datetime.fromisoformat(text))
     except (ValueError, TypeError, ImportError):
         return None
+
+
+def _to_naive_local(dt: datetime) -> datetime:
+    """Convert aware datetimes to naive local time (the app compares against datetime.now())."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone().replace(tzinfo=None)

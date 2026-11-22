@@ -49,7 +49,7 @@ class ScoringConfig(BaseModel):
     thresholds: ScoringThresholds = ScoringThresholds()
     locations: LocationConfig = LocationConfig()
     recency: RecencyConfig = RecencyConfig()
-    min_keywords_confidence: int = 8  # Keyword count required for full keyword_match confidence
+    min_keywords_confidence: int = Field(default=8, ge=1)  # Keyword count required for full keyword_match confidence
 
 
 class LLMConfig(BaseModel):

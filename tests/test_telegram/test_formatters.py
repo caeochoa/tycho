@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tycho.config import ScoringThresholds
 from tycho.models import Job, JobStatus
 from tycho.telegram.formatters import (
     format_job_detail,
@@ -16,7 +17,7 @@ from tycho.telegram.formatters import (
 class TestFormatJobLine:
     def test_high_score_green(self, ml_job):
         ml_job.score = 0.85
-        line = format_job_line(ml_job, 1)
+        line = format_job_line(ml_job, 1, ScoringThresholds())
         assert "1." in line
         assert "0.85" in line
         assert "ML" in line or "Machine Learning" in line
@@ -24,19 +25,19 @@ class TestFormatJobLine:
 
     def test_medium_score_yellow(self, backend_job):
         backend_job.score = 0.55
-        line = format_job_line(backend_job, 2)
+        line = format_job_line(backend_job, 2, ScoringThresholds())
         assert "0.55" in line
         assert "\U0001f7e1" in line  # yellow circle
 
     def test_low_score_red(self, empty_job):
         empty_job.score = 0.20
-        line = format_job_line(empty_job, 3)
+        line = format_job_line(empty_job, 3, ScoringThresholds())
         assert "0.20" in line
         assert "\U0001f534" in line  # red circle
 
     def test_no_score(self, empty_job):
         empty_job.score = None
-        line = format_job_line(empty_job, 1)
+        line = format_job_line(empty_job, 1, ScoringThresholds())
         assert "-.--" in line
         assert "\u26aa" in line  # white circle
 
@@ -45,14 +46,14 @@ class TestFormatJobLine:
             id="test-esc", source="test", title="<b>Hacker</b>",
             company="Corp & Co", location="A > B",
         )
-        line = format_job_line(job, 1)
+        line = format_job_line(job, 1, ScoringThresholds())
         assert "&lt;b&gt;" in line
         assert "&amp;" in line
         assert "&gt;" in line
 
     def test_empty_location(self):
         job = Job(id="test-loc", source="test", title="Test", company="Corp", location="")
-        line = format_job_line(job, 1)
+        line = format_job_line(job, 1, ScoringThresholds())
         # No trailing parentheses
         assert "()" not in line
 

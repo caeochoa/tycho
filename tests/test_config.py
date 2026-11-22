@@ -146,3 +146,11 @@ class TestLoadConfig:
 
 # Need this import for approx
 import pytest
+
+
+def test_min_keywords_confidence_must_be_positive():
+    import pytest
+    from pydantic import ValidationError
+    from tycho.config import ScoringConfig
+    with pytest.raises(ValidationError):
+        ScoringConfig(min_keywords_confidence=0)

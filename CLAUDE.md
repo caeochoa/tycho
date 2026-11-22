@@ -178,9 +178,9 @@ Monitors specific companies' careers pages directly via their ATS provider's pub
 
 Score = weighted sum of 4 components (weights in config.yaml):
 
-- **keyword_match** (0.35): % of job description keywords found in profile skills
-- **title_match** (0.25): Jaccard similarity of job title words vs profile titles
-- **skills_overlap** (0.25): Jaccard similarity of job skills vs profile skills
+- **keyword_match** (0.30): % of job description keywords found in profile skills, scaled by extraction confidence (`scoring.min_keywords_confidence`, must be >= 1: keyword count needed for full confidence)
+- **title_match** (0.20): Profile-recall — fraction of profile title words (minus seniority stopwords) found in the job title
+- **skills_overlap** (0.35): Profile recall — fraction of your core (priority-1) skills the job mentions
 - **location_match** (0.15): Binary — 1.0 for remote/known cities, 0.0 otherwise. Uses word-boundary regex to avoid false positives. Locations are configurable via `scoring.locations` in config.yaml. Abbreviations (e.g. `es` → `spain`) are expanded before matching.
 
 The weighted sum is then multiplied by a **recency factor** (`scoring.recency` in config.yaml): 1.0 up to `full_score_days`, decaying linearly to `min_factor` at `decay_days`, so stale postings sink in the ranking. Age comes from `date_posted` (falling back to `date_collected`; unknown age = no penalty). The factor and age are recorded in `score_details` (`recency_factor`, `age_days`). Note: stored scores only decay when re-scored — `tycho collect` refreshes re-seen jobs, run `tycho rescore` periodically for the rest.
@@ -295,7 +295,7 @@ PDF compilation requires `pdflatex` or `latexmk`. Falls back to `.tex` output if
 search:
   terms: ["AI Engineer", "Machine Learning Engineer"]  # JobSpy search queries
   locations: ["Remote", "Madrid", "London"]            # Search locations
-  country: "Spain"                                      # Affects phone number + default Indeed locale
+  country: "Ireland"                                    # Affects phone number + default Indeed locale
   location_countries:                                   # Per-location Indeed locale overrides
     Galway: "Ireland"
     London: "UK"

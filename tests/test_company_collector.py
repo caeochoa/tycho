@@ -257,6 +257,29 @@ class TestSmartRecruitersAdapter:
         assert "Ops work" in job.description
         assert "K8s" in job.description
 
+    def test_paginates_until_total_found(self):
+        company = CompanyConfig(name="Umbrella", url="https://careers.smartrecruiters.com/UmbrellaCorp")
+        page1 = {"totalFound": 3, "content": [{"id": "1", "name": "A"}, {"id": "2", "name": "B"}]}
+        page2 = {"totalFound": 3, "content": [{"id": "3", "name": "C"}]}
+        detail = _response({})
+        jobs, mock_get = _fetch_with(
+            "smartrecruiters", "UmbrellaCorp", company,
+            [_response(page1), _response(page2), detail, detail, detail],
+        )
+        assert [j.source_id for j in jobs] == ["1", "2", "3"]
+        assert mock_get.call_args_list[1].kwargs["params"]["offset"] == 2
+
+
+class TestMissingIds:
+    def test_postings_without_id_are_skipped(self):
+        company = CompanyConfig(name="Acme", url="https://boards.greenhouse.io/acme")
+        data = {"jobs": [{"id": 1, "title": "A"}, {"title": "No id"}]}
+        with patch("tycho.collector.company_collector.requests.get") as mock_get:
+            mock_get.return_value = _response(data)
+            cfg = TychoConfig(companies=[company])
+            jobs = collect_company_jobs(cfg)
+        assert [j.title for j in jobs] == ["A"]
+
 
 class TestRecruiteeAdapter:
     def test_maps_jobs(self):

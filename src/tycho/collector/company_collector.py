@@ -235,9 +235,19 @@ def _fetch_workable(board: str, company: CompanyConfig) -> list[Job]:
 
 
 def _fetch_smartrecruiters(board: str, company: CompanyConfig) -> list[Job]:
-    data = _get_json(f"https://api.smartrecruiters.com/v1/companies/{board}/postings")
+    page_size = 100
+    items: list[dict] = []
+    while True:
+        data = _get_json(
+            f"https://api.smartrecruiters.com/v1/companies/{board}/postings",
+            params={"limit": page_size, "offset": len(items)},
+        )
+        page = data.get("content", [])
+        items.extend(page)
+        if not page or len(items) >= (data.get("totalFound") or 0):
+            break
     jobs = []
-    for item in data.get("content", []):
+    for item in items:
         posting_id = item.get("id", "")
         loc = item.get("location") or {}
         location = ", ".join(p for p in (loc.get("city"), loc.get("country")) if p)
@@ -446,6 +456,10 @@ class CompanyCollector(BaseCollector):
             provider_name, board = resolved
             try:
                 jobs = PROVIDERS[provider_name].fetch(board, company)
+                missing = [j for j in jobs if not j.source_id]
+                if missing:
+                    print(f"  [warning] {company.name}: skipping {len(missing)} posting(s) without an id")
+                    jobs = [j for j in jobs if j.source_id]
                 print(f"  {company.name} ({provider_name}): {len(jobs)} jobs")
                 all_jobs.extend(jobs)
             except Exception as e:

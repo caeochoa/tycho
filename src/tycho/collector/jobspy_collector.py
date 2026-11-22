@@ -30,7 +30,7 @@ def _patch_linkedin_get_location():
     def _safe_get_location(self, metadata_card):
         try:
             return _original_get_location(self, metadata_card)
-        except (ValueError, Exception):
+        except ValueError:
             # Fall back to the configured scrape country so the job is still
             # collected, just without a parsed country on its location.
             try:
