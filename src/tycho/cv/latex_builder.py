@@ -50,6 +50,9 @@ def render_latex(
         comment_end_string="#>",
     )
 
+    # Register latex_escape as a Jinja2 filter so templates can use | latex_escape
+    env.filters["latex_escape"] = _latex_escape
+
     # Don't auto-escape — we handle LaTeX escaping ourselves
     template_name = f"{template}_es.tex.j2" if language == "es" else f"{template}.tex.j2"
     tmpl = env.get_template(template_name)
