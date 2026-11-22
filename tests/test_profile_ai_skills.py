@@ -2,7 +2,7 @@
 
 Without these, AI-lab postings that describe work as prompts/agents/evals rather
 than naming frameworks score 0 on skills_overlap even after keyword extraction
-picks the terms up (see OpenAI job li-4417173113).
+picks the terms up.
 """
 
 import os
@@ -19,29 +19,29 @@ def _real_profile():
     return load_profile(REAL_PROFILE_DIR)
 
 
+AI_TERMS = ["ai agents", "prompt engineering", "evals", "fine-tuning"]
+
+
 class TestAINativeSkillsInProfile:
     def test_ai_native_terms_are_profile_skills(self):
-        profile = _real_profile()
-        skill_names = {s.name.lower() for s in profile.skills.technical}
-        for term in ["agents", "prompt engineering", "evals", "evaluations", "fine-tuning", "deployment"]:
-            assert term in skill_names, f"{term!r} missing from profile/skills.yaml"
+        names = {s.name.lower() for s in _real_profile().skills.technical}
+        for term in AI_TERMS + ["model deployment"]:
+            assert term in names, f"{term!r} missing from profile/skills.yaml"
 
-    def test_keyword_match_score_credits_ai_native_terms(self):
-        profile = _real_profile()
-        job_keywords = ["agents", "deployment", "evals", "evaluations"]
-        score = _keyword_match_score(job_keywords, profile, min_confidence_count=8)
-        assert score > 0.0
+    def test_no_duplicate_skills(self):
+        names = [s.name.lower() for s in _real_profile().skills.technical]
+        assert len(names) == len(set(names))
 
-    def test_ai_native_terms_are_priority_1(self):
-        # skills_overlap only counts priority-1 skills as the core pool (scorer.py:133);
-        # these need to be priority 1 to actually move that component, not just keyword_match.
-        profile = _real_profile()
-        priorities = {s.name.lower(): s.priority for s in profile.skills.technical}
-        for term in ["agents", "prompt engineering", "evals", "evaluations", "deployment"]:
-            assert priorities[term] == 1, f"{term!r} is priority {priorities[term]}, expected 1"
+    def test_core_pool_stays_small(self):
+        # Every priority-1 skill dilutes skills_overlap for all jobs.
+        core = [s for s in _real_profile().skills.technical if s.priority == 1]
+        assert len(core) <= 12
 
-    def test_skills_overlap_credits_ai_native_terms(self):
+    def test_generic_terms_not_core(self):
+        core = {s.name.lower() for s in _real_profile().skills.technical if s.priority == 1}
+        assert not core & {"deployment", "evaluations", "agents"}
+
+    def test_scores_credit_ai_native_terms(self):
         profile = _real_profile()
-        job_keywords = ["agents", "deployment", "evals", "evaluations"]
-        score = _skills_overlap_score(job_keywords, profile)
-        assert score > 0.0
+        assert _keyword_match_score(AI_TERMS, profile, min_confidence_count=4) > 0.0
+        assert _skills_overlap_score(AI_TERMS, profile) > _skills_overlap_score(["python"], profile)

@@ -9,9 +9,6 @@ technical:
   - name: "LangChain"
     tags: ["ai", "llm", "rag"]
     priority: 1
-  - name: "LangGraph"
-    tags: ["ai", "llm", "agents"]
-    priority: 1
   - name: "LLM"
     tags: ["ai", "llm", "agents"]
     priority: 1
@@ -27,7 +24,7 @@ technical:
   - name: "RAG"
     tags: ["ai", "llm", "rag"]
     priority: 1
-  - name: "Agents"
+  - name: "AI Agents"
     tags: ["ai", "llm", "agents"]
     priority: 1
   - name: "Prompt Engineering"
@@ -36,16 +33,16 @@ technical:
   - name: "Evals"
     tags: ["ai", "llm", "evaluation"]
     priority: 1
-  - name: "Evaluations"
-    tags: ["ai", "llm", "evaluation"]
-    priority: 1
-  - name: "Deployment"
-    tags: ["devops", "infra"]
-    priority: 1
 
   # --- Priority 2: Strong supporting skills ---
   - name: "Computer Vision"
     tags: ["cv", "ai", "ml"]
+    priority: 2
+  - name: "LangGraph"
+    tags: ["ai", "llm", "agents"]
+    priority: 2
+  - name: "Model Deployment"
+    tags: ["devops", "infra", "mlops"]
     priority: 2
   - name: "Transformers"
     tags: ["ml", "ai", "llm"]

@@ -106,8 +106,9 @@ def _skills_overlap_score(job_keywords: list[str], profile: Profile) -> float:
     """Profile recall: fraction of your *core* (priority-1) skills that the job requires.
 
     Using only priority-1 skills as the denominator keeps the baseline pool
-    small (~8 skills) so that matching 6 of them scores 0.75 rather than being
-    diluted by the full 29-skill profile list. Priority-2/3 skills can still
+    small (~10 skills) so that matching a handful scores meaningfully rather than
+    being diluted by the full profile list. Keep this pool small: every extra
+    priority-1 skill lowers skills_overlap for every job. Priority-2/3 skills can still
     contribute to the numerator if the job mentions them.
     """
     core_skills = {s.name.lower() for s in profile.skills.technical if s.priority == 1}

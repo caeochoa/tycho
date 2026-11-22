@@ -28,8 +28,8 @@ TECH_KEYWORDS = {
     "machine learning", "deep learning", "computer vision", "nlp",
     "natural language processing", "reinforcement learning",
     "data science", "data engineering", "mlops",
-    "agents", "prompt engineering", "evals", "evaluations", "fine-tuning",
-    "deployment",
+    "ai agents", "prompt engineering", "evals", "fine-tuning",
+    "model deployment", "model evaluation", "llm evaluation",
     "linear algebra", "probability", "statistics", "optimization",
     # ML Ops / serving
     "onnx", "cuda", "tensorrt", "triton",
@@ -54,6 +54,15 @@ TECH_KEYWORDS = {
     "sharepoint", "dynamics 365",
     # Low-code / automation
     "rpa", "bpm", "low-code", "no-code",
+}
+
+
+# Spelling variants folded into the canonical keyword (matched as phrases).
+KEYWORD_ALIASES = {
+    "fine tuning": "fine-tuning",
+    "finetuning": "fine-tuning",
+    "agentic": "ai agents",
+    "llm agents": "ai agents",
 }
 
 
@@ -96,6 +105,10 @@ def _extract_keywords_regex(description: str, profile: Profile | None = None) ->
     for kw in TECH_KEYWORDS:
         if _word_match(kw, text):
             found.append(kw)
+
+    for alias, canonical in KEYWORD_ALIASES.items():
+        if _word_match(alias, text):
+            found.append(canonical)
 
     # Check against profile skills if available
     if profile:
