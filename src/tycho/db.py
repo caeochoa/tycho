@@ -331,11 +331,19 @@ def add_schedule_run(
 
 
 def get_known_source_ids(session: Session) -> dict[str, set[str]]:
-    """Map source -> set of stored source_ids (for skipping known jobs)."""
+    """Map source -> source_ids already stored *with a description*.
+
+    Jobs stored with an empty description (e.g. a rate-limited LinkedIn fetch)
+    are deliberately excluded so the next collect retries them.
+    """
     known: dict[str, set[str]] = {}
-    for source, source_id in session.query(JobRow.source, JobRow.source_id).all():
-        if source_id:
-            known.setdefault(source, set()).add(source_id)
+    rows = session.query(JobRow.source, JobRow.source_id).filter(
+        JobRow.source_id != "",
+        JobRow.description.isnot(None),
+        func.length(func.trim(JobRow.description)) > 0,
+    )
+    for source, source_id in rows:
+        known.setdefault(source, set()).add(source_id)
     return known
 
 

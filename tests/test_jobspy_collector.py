@@ -171,3 +171,22 @@ class TestSkipKnownLinkedIn:
             li.return_value._get_job_details.return_value = {"description": "hi"}
             assert collector._fetch_linkedin_description("li-42") == "hi"
             li.return_value._get_job_details.assert_called_once_with("42")
+
+    def test_row_without_id_passes_through_and_does_not_block_others(self):
+        df = _li_df("li-1", "li-2")
+        df.loc[0, "id"] = ""
+        jobs, _, fetch = self._run(df, {})
+        assert [j.source_id for j in jobs] == ["", "li-2"]
+        fetch.assert_called_once_with("li-2")
+
+    def test_stale_rows_not_fetched_nor_counted(self, capsys):
+        old = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        df = _li_df("li-1", "li-2")
+        df.loc[0, "date_posted"] = old
+        collector = JobSpyCollector(known_ids={}, max_age_days=7)
+        with patch("tycho.collector.jobspy_collector.scrape_jobs", return_value=df), \
+             patch.object(JobSpyCollector, "_fetch_linkedin_description", return_value="D") as fetch:
+            jobs = collector.collect(search_terms=["ml"], locations=["Madrid"])
+        assert [j.source_id for j in jobs] == ["li-2"]
+        fetch.assert_called_once_with("li-2")
+        assert collector.term_stats["ml"] == [1, 0]

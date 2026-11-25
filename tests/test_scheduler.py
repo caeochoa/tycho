@@ -267,8 +267,11 @@ class TestKnownIdsAndCollectionTask:
         from tycho.models import Job
 
         session = get_session(init_db(str(tmp_path / "k.db")))
-        upsert_job(session, Job(id="a", source="linkedin", source_id="li-1", title="t", company="c"))
-        upsert_job(session, Job(id="b", source="indeed", source_id="in-2", title="t", company="c"))
+        upsert_job(session, Job(id="a", source="linkedin", source_id="li-1", title="t", company="c", description="d"))
+        upsert_job(session, Job(id="b", source="indeed", source_id="in-2", title="t", company="c", description="d"))
+        # empty / whitespace descriptions are not "known": they get retried
+        upsert_job(session, Job(id="c", source="linkedin", source_id="li-3", title="t", company="c", description=""))
+        upsert_job(session, Job(id="d", source="linkedin", source_id="li-4", title="t", company="c", description="  "))
         session.commit()
         assert get_known_source_ids(session) == {"linkedin": {"li-1"}, "indeed": {"in-2"}}
 

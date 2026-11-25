@@ -167,19 +167,28 @@ class JobSpyCollector(BaseCollector):
 
         per_site: dict[str, int] = defaultdict(int)
         known_total = 0
+        returned = 0  # rows within the age window (what the summary counts)
         fetched = 0
         fetch_secs = 0.0
         jobs = []
         for _, row in df.iterrows():
             site = _parse_str(row.get("site")) or "unknown"
             sid = _parse_str(row.get("id"))
+            date_posted = _parse_date(row.get("date_posted"))
+            # Drop stale rows first: no point fetching their descriptions, and
+            # the known-share stats should only reflect fresh results.
+            if cutoff and date_posted and date_posted < cutoff:
+                continue
+            returned += 1
             per_site[site] += 1
             is_known = bool(self.known_ids and sid in self.known_ids.get(site, ()))
             known_total += is_known
             description = _parse_str(row.get("description"))
-            if lazy and site == "linkedin":
-                # Known (in DB) or already handled this run: drop. Keeping it
-                # would let upsert_job overwrite the stored description with "".
+            if lazy and site == "linkedin" and sid:
+                # Known (in DB with a description) or already handled this run:
+                # drop. Keeping it would let upsert_job overwrite the stored
+                # description. Rows without an id can't be fetched or tracked,
+                # so they pass through untouched.
                 if is_known or sid in self._seen_linkedin:
                     continue
                 self._seen_linkedin.add(sid)
@@ -204,15 +213,13 @@ class JobSpyCollector(BaseCollector):
                 salary_max=_parse_float(row.get("max_amount")),
                 salary_currency=_parse_str(row.get("currency")) or None,
                 salary_interval=_parse_str(row.get("interval")) or None,
-                date_posted=_parse_date(row.get("date_posted")),
+                date_posted=date_posted,
                 date_collected=datetime.now(),
                 status=JobStatus.NEW,
             )
-            if cutoff and job.date_posted and job.date_posted < cutoff:
-                continue
             jobs.append(job)
 
-        self.term_stats[term][0] += len(df)
+        self.term_stats[term][0] += returned
         self.term_stats[term][1] += known_total
         print(
             f"  [scrape] '{term}' / {location}: scrape_jobs {scrape_secs:.1f}s, "
