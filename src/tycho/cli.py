@@ -64,21 +64,28 @@ def collect(
     from tycho.db import get_session, init_db, record_run
 
     engine = init_db(config.db_path)
-    counts = {"raw": 0, "deduped": 0, "new": 0}
+    counts = {"raw": 0, "deduped": 0, "new": 0, "error": None}
     try:
         _run_collect(config, engine, search_terms, search_locations, companies_only, no_companies, counts)
     except Exception as e:
-        session = get_session(engine)
+        # Never let a failure to record the run mask the original error.
         try:
-            record_run(session, counts["raw"], counts["deduped"], counts["new"], error=str(e))
-        finally:
-            session.close()
+            session = get_session(engine)
+            try:
+                record_run(session, counts["raw"], counts["deduped"], counts["new"], error=str(e))
+            finally:
+                session.close()
+        except Exception:
+            pass
         raise
     session = get_session(engine)
     try:
-        record_run(session, counts["raw"], counts["deduped"], counts["new"])
+        record_run(session, counts["raw"], counts["deduped"], counts["new"], error=counts["error"])
     finally:
         session.close()
+    if counts["error"]:
+        console.print(f"[red]{counts['error']}[/red]")
+        raise typer.Exit(1)
 
 
 def _run_collect(config, engine, search_terms, search_locations, companies_only, no_companies, counts):
@@ -113,6 +120,8 @@ def _run_collect(config, engine, search_terms, search_locations, companies_only,
                 results_wanted=config.search.results_per_source,
             )
         )
+        if collector.all_searches_failed is True:
+            counts["error"] = f"all {collector.searches_attempted} JobSpy searches failed"
 
     if not no_companies and config.companies:
         console.print("  Collecting from company careers pages...")

@@ -288,3 +288,19 @@ class TestKnownIdsAndCollectionTask:
             collection_task(TychoConfig(db_path=str(tmp_path / "c.db")), engine)
         runs = get_schedule_runs(get_session(engine))
         assert len(runs) == 1 and runs[0].status == "success"
+
+    def test_collection_task_records_error_when_all_searches_failed(self, tmp_path):
+        from unittest.mock import patch
+
+        from tycho.config import TychoConfig
+        from tycho.db import get_schedule_runs, get_session, init_db
+        from tycho.scheduler.scheduler import collection_task
+
+        engine = init_db(str(tmp_path / "f.db"))
+        with patch("tycho.collector.jobspy_collector.JobSpyCollector") as jc:
+            jc.return_value.collect.return_value = []
+            jc.return_value.all_searches_failed = True
+            jc.return_value.searches_attempted = 3
+            collection_task(TychoConfig(db_path=str(tmp_path / "f.db")), engine)
+        runs = get_schedule_runs(get_session(engine))
+        assert runs[0].status == "error" and "all 3" in runs[0].error_message

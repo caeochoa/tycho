@@ -123,3 +123,28 @@ class TestCollectScheduleRun:
             mock_jobspy.return_value.collect.return_value = []
             runner.invoke(app, ["collect", "--max-age-days", "30"])
         assert mock_jobspy.call_args.kwargs["max_age_days"] == 30
+
+    def test_all_searches_failed_records_error_and_exits_nonzero(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _write_config(tmp_path)
+        with patch("tycho.collector.jobspy_collector.JobSpyCollector") as mock_jobspy, patch(
+            "tycho.collector.company_collector.collect_company_jobs", return_value=[]
+        ):
+            c = mock_jobspy.return_value
+            c.collect.return_value = []
+            c.all_searches_failed = True
+            c.searches_attempted = 4
+            result = runner.invoke(app, ["collect"])
+        assert result.exit_code == 1
+        runs = self._runs(tmp_path)
+        assert runs[0].status == "error" and "all 4" in runs[0].error_message
+
+    def test_record_failure_does_not_mask_original_error(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _write_config(tmp_path)
+        with patch(
+            "tycho.collector.company_collector.collect_company_jobs",
+            side_effect=RuntimeError("original"),
+        ), patch("tycho.db.record_run", side_effect=OSError("db locked")):
+            result = runner.invoke(app, ["collect", "--companies-only"])
+        assert isinstance(result.exception, RuntimeError) and "original" in str(result.exception)

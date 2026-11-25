@@ -71,6 +71,8 @@ class JobSpyCollector(BaseCollector):
         self._linkedin_detail: LinkedIn | None = None
         # per-term stats for the end-of-run summary: term -> [returned, known]
         self.term_stats: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+        self.searches_attempted = 0
+        self.searches_failed = 0
 
     def collect(
         self,
@@ -96,10 +98,12 @@ class JobSpyCollector(BaseCollector):
             for location in locations:
                 country = self.location_countries.get(location, self.country)
                 started = time.monotonic()
+                self.searches_attempted += 1
                 try:
                     jobs = self._scrape(term, location, results_wanted, country)
                     all_jobs.extend(jobs)
                 except Exception as e:
+                    self.searches_failed += 1
                     print(f"  [warning] Failed to scrape '{term}' in '{location}': {e}")
                     continue
                 print(
@@ -109,6 +113,11 @@ class JobSpyCollector(BaseCollector):
 
         self._print_term_summary()
         return all_jobs
+
+    @property
+    def all_searches_failed(self) -> bool:
+        """True when searches ran and every one of them raised."""
+        return self.searches_attempted > 0 and self.searches_failed == self.searches_attempted
 
     def _print_term_summary(self) -> None:
         """Per-term share of results already in the DB (trim candidates)."""

@@ -190,3 +190,18 @@ class TestSkipKnownLinkedIn:
         assert [j.source_id for j in jobs] == ["li-2"]
         fetch.assert_called_once_with("li-2")
         assert collector.term_stats["ml"] == [1, 0]
+
+
+class TestAllSearchesFailed:
+    def test_flag_true_only_when_every_search_raises(self):
+        c = JobSpyCollector()
+        with patch("tycho.collector.jobspy_collector.scrape_jobs", side_effect=RuntimeError("blocked")):
+            assert c.collect(search_terms=["a", "b"], locations=["Madrid"]) == []
+        assert c.searches_attempted == 2 and c.all_searches_failed is True
+
+    def test_flag_false_when_some_succeed(self):
+        c = JobSpyCollector()
+        results = [RuntimeError("x"), _fake_df()]
+        with patch("tycho.collector.jobspy_collector.scrape_jobs", side_effect=results):
+            c.collect(search_terms=["a", "b"], locations=["Madrid"])
+        assert c.all_searches_failed is False

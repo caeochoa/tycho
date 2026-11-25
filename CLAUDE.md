@@ -303,7 +303,7 @@ search:
     London: "UK"
   linkedin_fetch_description: true                      # Fetch full LinkedIn descriptions (slower; needed for scoring)
   results_per_source: 50                                # Per (term, location) pair
-  max_age_days: 30                                      # Skip postings older than this (0/null disables)
+  max_age_days: 7                                       # Skip postings older than this (0/null disables); 30 for a manual backfill
 
 companies:                       # Company careers pages monitored via ATS APIs
   - name: Acme                   # Display name (used as Job.company)

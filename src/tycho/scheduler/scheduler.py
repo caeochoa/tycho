@@ -66,6 +66,11 @@ def collection_task(config: TychoConfig, engine):
             raw_count=raw_count,
             deduped_count=deduped_count,
             new_count=new_count,
+            error=(
+                f"all {collector.searches_attempted} JobSpy searches failed"
+                if collector.all_searches_failed is True
+                else None
+            ),
         )
 
         logger.info(
@@ -78,6 +83,7 @@ def collection_task(config: TychoConfig, engine):
     except Exception as e:
         logger.error("Scheduled collection failed: %s", e)
         try:
+            session.rollback()  # the session may be mid-failed-transaction
             record_run(session, error=str(e))
         except Exception:
             pass
