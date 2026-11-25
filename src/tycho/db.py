@@ -328,3 +328,40 @@ def add_schedule_run(
     )
     session.add(run)
     return run
+
+
+def get_known_source_ids(session: Session) -> dict[str, set[str]]:
+    """Map source -> source_ids already stored *with a description*.
+
+    Jobs stored with an empty description (e.g. a rate-limited LinkedIn fetch)
+    are deliberately excluded so the next collect retries them.
+    """
+    known: dict[str, set[str]] = {}
+    rows = session.query(JobRow.source, JobRow.source_id).filter(
+        JobRow.source_id != "",
+        JobRow.description.isnot(None),
+        func.length(func.trim(JobRow.description)) > 0,
+    )
+    for source, source_id in rows:
+        known.setdefault(source, set()).add(source_id)
+    return known
+
+
+def record_run(
+    session: Session,
+    raw_count: int = 0,
+    deduped_count: int = 0,
+    new_count: int = 0,
+    error: str | None = None,
+) -> ScheduleRunRow:
+    """Write and commit a success (error is None) or error schedule_runs row."""
+    run = add_schedule_run(
+        session,
+        raw_count=raw_count,
+        deduped_count=deduped_count,
+        new_count=new_count,
+        status="error" if error is not None else "success",
+        error_message=error,
+    )
+    session.commit()
+    return run

@@ -50,16 +50,47 @@ def collect(
     locations: list[str] | None = typer.Option(None, "--location", "-l", help="Locations (overrides config)"),
     companies_only: bool = typer.Option(False, "--companies-only", help="Only collect from configured company careers pages"),
     no_companies: bool = typer.Option(False, "--no-companies", help="Skip configured company careers pages"),
+    max_age_days: int | None = typer.Option(None, "--max-age-days", help="Override search.max_age_days (e.g. 30 for a backfill)"),
 ):
     """Collect jobs from LinkedIn, Indeed, and configured company careers pages."""
     config = _get_config()
     search_terms = terms or config.search.terms
     search_locations = locations or config.search.locations
+    if max_age_days is not None:
+        config.search.max_age_days = max_age_days
 
     console.print(f"[bold]Collecting jobs...[/bold]")
 
+    from tycho.db import get_session, init_db, record_run
+
+    engine = init_db(config.db_path)
+    counts = {"raw": 0, "deduped": 0, "new": 0, "error": None}
+    try:
+        _run_collect(config, engine, search_terms, search_locations, companies_only, no_companies, counts)
+    except Exception as e:
+        # Never let a failure to record the run mask the original error.
+        try:
+            session = get_session(engine)
+            try:
+                record_run(session, counts["raw"], counts["deduped"], counts["new"], error=str(e))
+            finally:
+                session.close()
+        except Exception:
+            pass
+        raise
+    session = get_session(engine)
+    try:
+        record_run(session, counts["raw"], counts["deduped"], counts["new"], error=counts["error"])
+    finally:
+        session.close()
+    if counts["error"]:
+        console.print(f"[red]{counts['error']}[/red]")
+        raise typer.Exit(1)
+
+
+def _run_collect(config, engine, search_terms, search_locations, companies_only, no_companies, counts):
     from tycho.collector.normalize import deduplicate
-    from tycho.db import get_session, init_db, upsert_job
+    from tycho.db import get_known_source_ids, get_session, upsert_job
 
     raw_jobs = []
 
@@ -69,11 +100,18 @@ def collect(
 
         from tycho.collector.jobspy_collector import JobSpyCollector
 
+        known_session = get_session(engine)
+        try:
+            known_ids = get_known_source_ids(known_session)
+        finally:
+            known_session.close()
+
         collector = JobSpyCollector(
             country=config.search.country,
             location_countries=config.search.location_countries,
             linkedin_fetch_description=config.search.linkedin_fetch_description,
             max_age_days=config.search.max_age_days,
+            known_ids=known_ids,
         )
         raw_jobs.extend(
             collector.collect(
@@ -82,6 +120,8 @@ def collect(
                 results_wanted=config.search.results_per_source,
             )
         )
+        if collector.all_searches_failed is True:
+            counts["error"] = f"all {collector.searches_attempted} JobSpy searches failed"
 
     if not no_companies and config.companies:
         console.print("  Collecting from company careers pages...")
@@ -89,9 +129,11 @@ def collect(
 
         raw_jobs.extend(collect_company_jobs(config))
 
+    counts["raw"] = len(raw_jobs)
     console.print(f"  Collected [bold]{len(raw_jobs)}[/bold] raw jobs")
 
     jobs = deduplicate(raw_jobs)
+    counts["deduped"] = len(jobs)
     console.print(f"  After dedup: [bold]{len(jobs)}[/bold] unique jobs")
 
     # Score jobs
@@ -109,7 +151,6 @@ def collect(
         console.print(f"  [yellow]Skipping scoring: {e}[/yellow]")
 
     # Store in database
-    engine = init_db(config.db_path)
     session = get_session(engine)
     new_count = 0
     for job in jobs:
@@ -117,6 +158,7 @@ def collect(
             new_count += 1
     session.commit()
     session.close()
+    counts["new"] = new_count
 
     console.print(f"\n[bold green]Done![/bold green] {new_count} new jobs added, {len(jobs) - new_count} updated.")
 

@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 
 from tycho.config import TychoConfig
-from tycho.db import add_schedule_run, get_session, upsert_job
+from tycho.db import get_known_source_ids, get_session, record_run, upsert_job
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ def collection_task(config: TychoConfig, engine):
             location_countries=config.search.location_countries,
             linkedin_fetch_description=config.search.linkedin_fetch_description,
             max_age_days=config.search.max_age_days,
+            known_ids=get_known_source_ids(session),
         )
         raw_jobs = collector.collect(
             search_terms=config.search.terms,
@@ -60,14 +61,17 @@ def collection_task(config: TychoConfig, engine):
                 new_count += 1
         session.commit()
 
-        add_schedule_run(
+        record_run(
             session,
             raw_count=raw_count,
             deduped_count=deduped_count,
             new_count=new_count,
-            status="success",
+            error=(
+                f"all {collector.searches_attempted} JobSpy searches failed"
+                if collector.all_searches_failed is True
+                else None
+            ),
         )
-        session.commit()
 
         logger.info(
             "Scheduled collection: %d raw, %d deduped, %d new",
@@ -79,8 +83,8 @@ def collection_task(config: TychoConfig, engine):
     except Exception as e:
         logger.error("Scheduled collection failed: %s", e)
         try:
-            add_schedule_run(session, status="error", error_message=str(e))
-            session.commit()
+            session.rollback()  # the session may be mid-failed-transaction
+            record_run(session, error=str(e))
         except Exception:
             pass
     finally:
