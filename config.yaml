@@ -16,7 +16,7 @@ search:
     Barcelona: "Spain"
   linkedin_fetch_description: true # fetch each LinkedIn job page for full description (slower)
   results_per_source: 100
-  max_age_days: 3                  # daily run; backfill with `tycho collect --max-age-days 30` (0/null disables)
+  max_age_days: 7                  # daily run; backfill with `tycho collect --max-age-days 30` (0/null disables)
 
 # Company careers pages to monitor directly (ATS job boards).
 # Provider (greenhouse, lever, ashby, workable, smartrecruiters, recruitee,
