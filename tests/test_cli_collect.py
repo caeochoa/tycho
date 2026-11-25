@@ -76,3 +76,50 @@ class TestCollectCompanies:
         assert result.exit_code == 0, result.output
         mock_jobspy.assert_called_once()
         mock_companies.assert_called_once()
+
+
+class TestCollectScheduleRun:
+    def _runs(self, tmp_path):
+        from tycho.db import get_schedule_runs, get_session, init_db
+
+        session = get_session(init_db(str(tmp_path / "test.db")))
+        try:
+            return get_schedule_runs(session)
+        finally:
+            session.close()
+
+    def test_success_writes_row(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _write_config(tmp_path)
+        with patch(
+            "tycho.collector.company_collector.collect_company_jobs",
+            return_value=[_company_job()],
+        ):
+            result = runner.invoke(app, ["collect", "--companies-only"])
+        assert result.exit_code == 0, result.output
+        runs = self._runs(tmp_path)
+        assert len(runs) == 1
+        assert (runs[0].status, runs[0].raw_count, runs[0].deduped_count, runs[0].new_count) == ("success", 1, 1, 1)
+
+    def test_failure_writes_error_row_and_exits_nonzero(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _write_config(tmp_path)
+        with patch(
+            "tycho.collector.company_collector.collect_company_jobs",
+            side_effect=RuntimeError("boom"),
+        ):
+            result = runner.invoke(app, ["collect", "--companies-only"])
+        assert result.exit_code != 0
+        runs = self._runs(tmp_path)
+        assert len(runs) == 1
+        assert runs[0].status == "error" and "boom" in runs[0].error_message
+
+    def test_max_age_days_flag_overrides_config(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _write_config(tmp_path, search={"max_age_days": 3})
+        with patch("tycho.collector.jobspy_collector.JobSpyCollector") as mock_jobspy, patch(
+            "tycho.collector.company_collector.collect_company_jobs", return_value=[]
+        ):
+            mock_jobspy.return_value.collect.return_value = []
+            runner.invoke(app, ["collect", "--max-age-days", "30"])
+        assert mock_jobspy.call_args.kwargs["max_age_days"] == 30

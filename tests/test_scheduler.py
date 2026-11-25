@@ -259,3 +259,29 @@ class TestCollectionTaskCompanies:
             collection_task(config, engine)
 
         assert mock_jobspy.call_args.kwargs["max_age_days"] == 7
+
+
+class TestKnownIdsAndCollectionTask:
+    def test_get_known_source_ids(self, tmp_path):
+        from tycho.db import get_known_source_ids, get_session, init_db, upsert_job
+        from tycho.models import Job
+
+        session = get_session(init_db(str(tmp_path / "k.db")))
+        upsert_job(session, Job(id="a", source="linkedin", source_id="li-1", title="t", company="c"))
+        upsert_job(session, Job(id="b", source="indeed", source_id="in-2", title="t", company="c"))
+        session.commit()
+        assert get_known_source_ids(session) == {"linkedin": {"li-1"}, "indeed": {"in-2"}}
+
+    def test_collection_task_records_run(self, tmp_path):
+        from unittest.mock import patch
+
+        from tycho.config import TychoConfig
+        from tycho.db import get_schedule_runs, get_session, init_db
+        from tycho.scheduler.scheduler import collection_task
+
+        engine = init_db(str(tmp_path / "c.db"))
+        with patch("tycho.collector.jobspy_collector.JobSpyCollector") as jc:
+            jc.return_value.collect.return_value = []
+            collection_task(TychoConfig(db_path=str(tmp_path / "c.db")), engine)
+        runs = get_schedule_runs(get_session(engine))
+        assert len(runs) == 1 and runs[0].status == "success"

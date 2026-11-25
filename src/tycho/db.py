@@ -328,3 +328,32 @@ def add_schedule_run(
     )
     session.add(run)
     return run
+
+
+def get_known_source_ids(session: Session) -> dict[str, set[str]]:
+    """Map source -> set of stored source_ids (for skipping known jobs)."""
+    known: dict[str, set[str]] = {}
+    for source, source_id in session.query(JobRow.source, JobRow.source_id).all():
+        if source_id:
+            known.setdefault(source, set()).add(source_id)
+    return known
+
+
+def record_run(
+    session: Session,
+    raw_count: int = 0,
+    deduped_count: int = 0,
+    new_count: int = 0,
+    error: str | None = None,
+) -> ScheduleRunRow:
+    """Write and commit a success (error is None) or error schedule_runs row."""
+    run = add_schedule_run(
+        session,
+        raw_count=raw_count,
+        deduped_count=deduped_count,
+        new_count=new_count,
+        status="error" if error is not None else "success",
+        error_message=error,
+    )
+    session.commit()
+    return run

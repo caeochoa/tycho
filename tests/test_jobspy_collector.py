@@ -110,3 +110,64 @@ class TestMaxAgeFilter:
         ):
             jobs = collector.collect(search_terms=["ml"], locations=["Madrid"])
         assert len(jobs) == 1
+
+
+def _li_df(*ids):
+    return pd.DataFrame(
+        [
+            {
+                "site": "linkedin", "id": i, "title": f"T {i}", "company": "Acme",
+                "location": "Madrid", "description": None,
+                "job_url": f"https://www.linkedin.com/jobs/view/{i[3:]}",
+                "date_posted": "2026-11-24",
+            }
+            for i in ids
+        ]
+    )
+
+
+class TestSkipKnownLinkedIn:
+    def _run(self, df, known, searches=1):
+        collector = JobSpyCollector(known_ids=known)
+        with patch("tycho.collector.jobspy_collector.scrape_jobs", return_value=df) as scrape, \
+             patch.object(JobSpyCollector, "_fetch_linkedin_description", return_value="DESC") as fetch:
+            jobs = collector.collect(search_terms=["ml"] * searches, locations=["Madrid"])
+        return jobs, scrape, fetch
+
+    def test_known_dropped_and_only_new_fetched(self):
+        jobs, scrape, fetch = self._run(_li_df("li-1", "li-2"), {"linkedin": {"li-1"}})
+        assert [j.source_id for j in jobs] == ["li-2"]
+        assert jobs[0].description == "DESC"
+        fetch.assert_called_once_with("li-2")
+        assert scrape.call_args.kwargs["linkedin_fetch_description"] is False
+
+    def test_same_id_in_two_searches_fetched_once(self):
+        jobs, _, fetch = self._run(_li_df("li-9"), {}, searches=2)
+        assert len(jobs) == 1
+        assert fetch.call_count == 1
+
+    def test_indeed_rows_kept_even_if_known(self):
+        df = _fake_df()  # indeed, has its own description
+        jobs, _, fetch = self._run(df, {"indeed": {"in-123"}})
+        assert len(jobs) == 1 and jobs[0].description == "Do ML things"
+        fetch.assert_not_called()
+
+    def test_without_known_ids_behaviour_unchanged(self):
+        collector = JobSpyCollector()
+        with patch("tycho.collector.jobspy_collector.scrape_jobs", return_value=_li_df("li-1")) as scrape:
+            collector.collect(search_terms=["ml"], locations=["Madrid"])
+        assert scrape.call_args.kwargs["linkedin_fetch_description"] is True
+
+    def test_fetch_failure_keeps_job_with_empty_description(self):
+        collector = JobSpyCollector(known_ids={})
+        with patch("tycho.collector.jobspy_collector.scrape_jobs", return_value=_li_df("li-5")), \
+             patch.object(JobSpyCollector, "_fetch_linkedin_description", side_effect=RuntimeError("x")):
+            jobs = collector.collect(search_terms=["ml"], locations=["Madrid"])
+        assert len(jobs) == 1 and jobs[0].description == ""
+
+    def test_fetch_uses_numeric_id(self):
+        collector = JobSpyCollector(known_ids={})
+        with patch("tycho.collector.jobspy_collector.LinkedIn") as li:
+            li.return_value._get_job_details.return_value = {"description": "hi"}
+            assert collector._fetch_linkedin_description("li-42") == "hi"
+            li.return_value._get_job_details.assert_called_once_with("42")
